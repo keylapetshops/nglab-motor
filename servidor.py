@@ -1,0 +1,294 @@
+from __future__ import annotations
+"""NGLAB Motor — Servidor API (FastAPI) para Railway.
+
+Endpoints:
+  POST /api/prospectar        -> lanza el pipeline en segundo plano
+  GET  /api/prospectar/estado -> estado del motor
+  GET  /api/lote              -> leads listos para enviar (para n8n)
+  POST /api/enviado/{id}      -> marca un lead como enviado
+  GET  /api/stats             -> métricas del embudo
+  GET  /baja/{token}          -> baja voluntaria LSSI (público)
+  GET  /px/{token}.gif        -> pixel de tracking de apertura (público)
+  GET  /salud                 -> healthcheck Railway (público)
+
+Variables de entorno necesarias en Railway:
+  MOTOR_API_KEY, GOOGLE_PLACES_API_KEY, PAGESPEED_API_KEY,
+  ANTHROPIC_API_KEY, SUPABASE_URL, SUPABASE_SERVICE_KEY,
+  ORG_ID, BASE_URL, REMITENTE_NOMBRE, REMITENTE_EMAIL,
+  EMPRESA_LEGAL, SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS, LOTE_DIARIO
+
+Arranque Railway: uvicorn servidor:app --host 0.0.0.0 --port $PORT
+"""
+import os
+import smtplib
+from email.mime.multipart import MIMEMultipart
+from email.mime.text import MIMEText
+
+from fastapi import BackgroundTasks, FastAPI, Header, HTTPException
+from fastapi.responses import HTMLResponse, Response
+
+from config import (LOTE_DIARIO, SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS,
+                    REMITENTE_NOMBRE, REMITENTE_EMAIL, EMPRESA_LEGAL, BASE_URL)
+from db import (lote_para_envio, actualizar_lead, excluir_email,
+                stats, ahora, email_excluido)
+from motor import ejecutar_pipeline, estado_motor, siguientes_combos
+
+MOTOR_API_KEY = os.getenv("MOTOR_API_KEY", "")
+
+app = FastAPI(title="NGLAB Motor", docs_url=None, redoc_url=None)
+
+# Pixel GIF transparente 1x1 para tracking de apertura de email
+_PIXEL_GIF = (
+    b"GIF89a\x01\x00\x01\x00\x80\x00\x00\x00\x00\x00\x00\x00\x00"
+    b"!\xf9\x04\x01\x00\x00\x00\x00,\x00\x00\x00\x00\x01\x00\x01"
+    b"\x00\x00\x02\x02D\x01\x00;"
+)
+
+
+def verificar(x_api_key: str | None) -> None:
+    """Autenticación simple por cabecera X-API-Key."""
+    if not MOTOR_API_KEY:
+        print("[AVISO] MOTOR_API_KEY no definida: API sin protección")
+        return
+    if x_api_key != MOTOR_API_KEY:
+        raise HTTPException(401, "X-API-Key inválida o ausente")
+
+
+# ---------------------------------------------------------------------------
+# Endpoints públicos
+# ---------------------------------------------------------------------------
+
+@app.get("/salud")
+def salud():
+    return {"ok": True, "servicio": "NGLAB Motor"}
+
+
+@app.get("/px/{token}.gif")
+def pixel(token: str):
+    """Marca la apertura del email. Endpoint público."""
+    from db import leads_por_estado
+    import httpx
+    from config import SUPABASE_URL, SUPABASE_SERVICE_KEY, ORG_ID
+
+    headers = {
+        "apikey": SUPABASE_SERVICE_KEY,
+        "Authorization": f"Bearer {SUPABASE_SERVICE_KEY}",
+        "Content-Type": "application/json",
+    }
+    try:
+        with httpx.Client(timeout=5) as c:
+            r = c.get(
+                f"{SUPABASE_URL}/rest/v1/crm_leads"
+                f"?token_baja=eq.{token}&org_id=eq.{ORG_ID}"
+                f"&select=id,fecha_apertura_email,veces_abierto_email",
+                headers=headers,
+            )
+            if r.status_code == 200 and r.json():
+                lead = r.json()[0]
+                veces = (lead.get("veces_abierto_email") or 0) + 1
+                campos = {
+                    "veces_abierto_email": veces,
+                    "updated_at": ahora(),
+                }
+                if not lead.get("fecha_apertura_email"):
+                    campos["fecha_apertura_email"] = ahora()
+                c.patch(
+                    f"{SUPABASE_URL}/rest/v1/crm_leads"
+                    f"?token_baja=eq.{token}&org_id=eq.{ORG_ID}",
+                    headers=headers,
+                    json=campos,
+                )
+    except Exception:
+        pass
+
+    return Response(
+        content=_PIXEL_GIF,
+        media_type="image/gif",
+        headers={"Cache-Control": "no-store, max-age=0"},
+    )
+
+
+@app.get("/baja/{token}", response_class=HTMLResponse)
+def baja(token: str):
+    """Procesa la baja voluntaria LSSI. Endpoint público."""
+    import httpx
+    from config import SUPABASE_URL, SUPABASE_SERVICE_KEY, ORG_ID
+
+    headers = {
+        "apikey": SUPABASE_SERVICE_KEY,
+        "Authorization": f"Bearer {SUPABASE_SERVICE_KEY}",
+        "Content-Type": "application/json",
+    }
+    with httpx.Client(timeout=10) as c:
+        r = c.get(
+            f"{SUPABASE_URL}/rest/v1/crm_leads"
+            f"?token_baja=eq.{token}&org_id=eq.{ORG_ID}"
+            f"&select=email,nombre_negocio",
+            headers=headers,
+        )
+    if r.status_code != 200 or not r.json():
+        raise HTTPException(404, "Enlace de baja no válido")
+
+    lead = r.json()[0]
+    email = lead.get("email")
+    if not email:
+        raise HTTPException(404, "Enlace de baja no válido")
+
+    excluir_email(email, motivo="baja_voluntaria")
+
+    return f"""<!doctype html>
+<html lang="es"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Baja confirmada · N&G LAB</title>
+<style>
+  body {{ background:#14141A; color:#e8e8e8; font-family:system-ui,sans-serif;
+         display:grid; place-items:center; min-height:100vh; margin:0; }}
+  .card {{ max-width:420px; padding:2.5rem; text-align:center; }}
+  h1 {{ color:#C8FF00; font-size:1.4rem; }}
+  p {{ opacity:.75; line-height:1.5; }}
+</style></head>
+<body><div class="card">
+  <h1>Baja confirmada</h1>
+  <p>El buzón <strong>{email}</strong> no volverá a recibir
+     comunicaciones comerciales de N&amp;G LAB Digital.</p>
+  <p>Gracias por tu tiempo.</p>
+</div></body></html>"""
+
+
+# ---------------------------------------------------------------------------
+# Endpoints protegidos
+# ---------------------------------------------------------------------------
+
+@app.post("/api/prospectar")
+def api_prospectar(
+    tareas: BackgroundTasks,
+    municipios: int = 3,
+    x_api_key: str | None = Header(default=None),
+):
+    """Lanza el pipeline automático en segundo plano."""
+    verificar(x_api_key)
+    if estado_motor["ocupado"]:
+        raise HTTPException(409, "Ya hay una prospección en curso")
+    municipios = max(1, min(municipios, 10))
+    proximos = siguientes_combos(municipios)
+    if not proximos:
+        return {"ok": True, "mensaje": "Todo prospectado. Añade nichos en config.py."}
+    tareas.add_task(ejecutar_pipeline, municipios)
+    return {
+        "ok": True,
+        "lanzado": True,
+        "nicho": proximos[0][0],
+        "municipios": [m for _, m, _ in proximos],
+        "nota": "Ejecutando en segundo plano.",
+    }
+
+
+@app.get("/api/prospectar/estado")
+def api_prospectar_estado(x_api_key: str | None = Header(default=None)):
+    verificar(x_api_key)
+    return estado_motor
+
+
+@app.get("/api/stats")
+def api_stats(x_api_key: str | None = Header(default=None)):
+    verificar(x_api_key)
+    return stats()
+
+
+@app.get("/api/lote")
+def api_lote(
+    limite: int = LOTE_DIARIO,
+    x_api_key: str | None = Header(default=None),
+):
+    """Devuelve los leads listos para enviar email (para n8n)."""
+    verificar(x_api_key)
+    limite = max(1, min(limite, 100))
+    leads = lote_para_envio(limite)
+    return [
+        {
+            "id": l["id"],
+            "nombre_negocio": l["nombre_negocio"],
+            "sector": l.get("sector"),
+            "ciudad": l.get("ciudad"),
+            "email": l["email"],
+            "email_asunto": l.get("email_asunto"),
+            "email_cuerpo": l.get("email_cuerpo"),
+            "email_html": l.get("email_html"),
+            "token_baja": l.get("token_baja"),
+        }
+        for l in leads
+    ]
+
+
+@app.post("/api/enviado/{lead_id}")
+def api_enviado(
+    lead_id: str,
+    x_api_key: str | None = Header(default=None),
+):
+    """n8n llama a este endpoint después de enviar el email."""
+    verificar(x_api_key)
+    ok = actualizar_lead(
+        lead_id,
+        estado="contactado",
+        fecha_email=ahora(),
+    )
+    if not ok:
+        raise HTTPException(404, "Lead no encontrado")
+    return {"ok": True, "id": lead_id}
+
+
+@app.post("/api/lead/{lead_id}/enviar")
+def api_enviar_directo(
+    lead_id: str,
+    x_api_key: str | None = Header(default=None),
+):
+    """Envía el email a un lead concreto desde el panel (acción inmediata)."""
+    verificar(x_api_key)
+    if not SMTP_PASS:
+        raise HTTPException(400, "Falta configurar SMTP_PASS")
+
+    import httpx
+    from config import SUPABASE_URL, SUPABASE_SERVICE_KEY, ORG_ID
+    headers = {
+        "apikey": SUPABASE_SERVICE_KEY,
+        "Authorization": f"Bearer {SUPABASE_SERVICE_KEY}",
+    }
+    with httpx.Client(timeout=10) as c:
+        r = c.get(
+            f"{SUPABASE_URL}/rest/v1/crm_leads?id=eq.{lead_id}&org_id=eq.{ORG_ID}",
+            headers=headers,
+        )
+    if r.status_code != 200 or not r.json():
+        raise HTTPException(404, "Lead no encontrado")
+
+    lead = r.json()[0]
+    if not lead.get("email"):
+        raise HTTPException(400, "Este lead no tiene email")
+    if lead.get("estado") == "descartado":
+        raise HTTPException(409, "Lead dado de baja")
+
+    asunto = lead.get("email_asunto")
+    html = lead.get("email_html")
+    texto = lead.get("email_cuerpo")
+
+    if not asunto or not html:
+        raise HTTPException(400, "El email aún no está generado. Ejecuta el pipeline primero.")
+
+    try:
+        msg = MIMEMultipart("alternative")
+        msg["Subject"] = asunto
+        msg["From"] = f"{REMITENTE_NOMBRE} <{REMITENTE_EMAIL}>"
+        msg["To"] = lead["email"]
+        msg["Reply-To"] = REMITENTE_EMAIL
+        if texto:
+            msg.attach(MIMEText(texto, "plain", "utf-8"))
+        msg.attach(MIMEText(html, "html", "utf-8"))
+        with smtplib.SMTP(SMTP_HOST, SMTP_PORT, timeout=20) as s:
+            s.starttls()
+            s.login(SMTP_USER, SMTP_PASS)
+            s.send_message(msg)
+    except Exception as e:
+        raise HTTPException(502, f"Error enviando: {type(e).__name__}: {e}")
+
+    actualizar_lead(lead_id, estado="contactado", fecha_email=ahora())
+    return {"ok": True, "enviado_a": lead["email"]}
