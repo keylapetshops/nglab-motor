@@ -90,7 +90,7 @@ FORMATO DE RESPUESTA — JSON puro, sin markdown:
 El cuerpo_html debe incluir las flechas → para los puntos. No uses saltos de linea reales dentro de los valores JSON. Maximo 200 palabras el cuerpo. Responde SOLO el JSON."""
 
     headers = {"x-api-key": ANTHROPIC_API_KEY, "anthropic-version": "2023-06-01", "content-type": "application/json"}
-    body = {"model": MODELO, "max_tokens": 2000, "messages": [{"role": "system", "content": SYSTEM_PROMPT}, {"role": "user", "content": prompt}]}
+    body = {"model": MODELO, "max_tokens": 2000, "system": SYSTEM_PROMPT, "messages": [{"role": "user", "content": prompt}]}
     try:
         r = httpx.post(URL, headers=headers, json=body, timeout=60)
         t = r.json()["content"][0]["text"].strip().replace("```json","").replace("```","").strip()
@@ -116,3 +116,4 @@ def main(nicho=None):
 
 if __name__ == "__main__":
     main(sys.argv[1] if len(sys.argv) > 1 else None)
+
