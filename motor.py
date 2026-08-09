@@ -1,91 +1,59 @@
-﻿# VERSION: 2.0 - usa crm_busquedas
-"""
-Motor de prospeccion NGLAB.
-Pipeline por ejecucion:
-  1. Buscar negocios (Google Places)
-  2. Extraer emails + separar sin_web / sin_email
-  3. Validar emails (sintaxis + MX DNS)
-  4. Auditar web + PageSpeed
-  5. Generar emails con Claude (SOLO leads con email valido)
-
-Rotacion automatica: consulta crm_busquedas en Supabase.
-Nunca repite un combo (nicho, municipio) ya prospectado.
+from __future__ import annotations
+"""NGLAB Motor - Orquestador de prospeccion.
+Logica identica a KD-Radar pero con Supabase para leads y SQLite para rotacion.
 """
 import importlib
 import threading
 import traceback
-import os
-import httpx
 
-from config import NICHOS, ANTHROPIC_API_KEY, SUPABASE_URL, SUPABASE_SERVICE_KEY
-from db import busquedas_hechas, stats
+from config import ANTHROPIC_API_KEY, MUNICIPIOS, NICHOS
+from db import init_db, registrar_prospeccion, busquedas_hechas, stats
 
 _lock = threading.Lock()
-
-estado_motor: dict = {
-    "ocupado": False,
-    "ultima_ejecucion": None,
-    "error": None,
-}
+estado_motor: dict = {"ocupado": False, "ultima_ejecucion": None, "error": None}
 
 
 def siguientes_combos(cuantos: int) -> list[tuple[str, str, str]]:
-    """Devuelve los proximos combos (nicho, municipio, provincia) pendientes desde crm_busquedas."""
+    """Rotacion round-robin identica a KD-Radar.
+    Elige el nicho con menos municipios completados.
+    Nunca repite un combo ya prospectado.
+    """
     hechas = busquedas_hechas()
-
-    headers = {
-        "apikey": SUPABASE_SERVICE_KEY,
-        "Authorization": f"Bearer {SUPABASE_SERVICE_KEY}",
-    }
-
-    # Obtener combos pendientes de crm_busquedas ordenados por prioridad
-    url = (
-        f"{SUPABASE_URL}/rest/v1/crm_busquedas"
-        f"?select=nicho,ciudad,provincia&order=id.asc&limit=200"
-    )
-    try:
-        with httpx.Client(timeout=15) as c:
-            r = c.get(url, headers=headers)
-            filas = r.json() if r.status_code == 200 else []
-    except Exception:
-        filas = []
-
-    pendientes = []
-    for fila in filas:
-        nicho = fila.get("nicho", "")
-        ciudad = fila.get("ciudad", "")
-        provincia = fila.get("provincia", "")
-        if nicho in NICHOS and (nicho, ciudad) not in hechas:
-            pendientes.append((nicho, ciudad, provincia))
-        if len(pendientes) >= cuantos:
-            break
-
-    return pendientes
+    conteo = {n: 0 for n in NICHOS}
+    for n, _m in hechas:
+        if n in conteo:
+            conteo[n] += 1
+    total_municipios = len(MUNICIPIOS)
+    candidatos = [n for n in NICHOS if conteo[n] < total_municipios]
+    if not candidatos:
+        return []
+    orden = list(NICHOS)
+    candidatos.sort(key=lambda n: (conteo[n], orden.index(n)))
+    nicho = candidatos[0]
+    pendientes = [(nicho, m, p) for m, p in MUNICIPIOS if (nicho, m) not in hechas]
+    return pendientes[:cuantos]
 
 
 def ejecutar_pipeline(municipios_por_dia: int = 3) -> dict:
     """Ejecuta el pipeline completo para los proximos municipios."""
     if not _lock.acquire(blocking=False):
         return {"ok": False, "motivo": "Ya hay una prospeccion en curso"}
-
     estado_motor.update(ocupado=True, error=None)
     try:
+        init_db()
         combos = siguientes_combos(municipios_por_dia)
-
         if not combos:
-            return {
-                "ok": True,
-                "mensaje": "Todos los nichos y municipios prospectados.",
-            }
+            return {"ok": True, "mensaje": "Todos los nichos y municipios prospectados."}
 
         nicho = combos[0][0]
         procesados = []
 
         # 1. Buscar negocios en Google Maps
-        mod = importlib.import_module("1_buscar")
+        mod_buscar = importlib.import_module("1_buscar")
         for n, municipio, provincia in combos:
             print(f"[MOTOR] 1/5 Buscando {n} en {municipio}...")
-            mod.procesar_municipio(n, municipio, provincia)
+            mod_buscar.procesar_municipio(n, municipio, provincia)
+            registrar_prospeccion(n, municipio)
             procesados.append(municipio)
 
         # 2. Extraer emails
@@ -100,10 +68,13 @@ def ejecutar_pipeline(municipios_por_dia: int = 3) -> dict:
         print("[MOTOR] 4/5 Auditando webs + PageSpeed...")
         importlib.import_module("3_auditar").main(nicho=nicho)
 
-        # 5. Generar emails con Claude (solo leads con email valido)
+        # 5. Generar emails con Claude
         if ANTHROPIC_API_KEY:
             print("[MOTOR] 5/5 Generando emails con Claude...")
-            importlib.import_module("4_generar_emails").main(nicho=nicho)
+            try:
+                importlib.import_module("4_generar_emails").main(nicho=nicho)
+            except Exception as e:
+                print(f"[MOTOR] Generacion de emails fallo ({type(e).__name__}: {e}); pipeline completo igualmente")
         else:
             print("[MOTOR] 5/5 SALTADO: falta ANTHROPIC_API_KEY")
 
@@ -125,4 +96,3 @@ def ejecutar_pipeline(municipios_por_dia: int = 3) -> dict:
     finally:
         estado_motor["ocupado"] = False
         _lock.release()
-
