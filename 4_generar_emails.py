@@ -14,11 +14,18 @@ def generar(lead, nicho):
     dolores = cargar_json(lead.get("pain_points")) or []
     dolor = dolores[0] if dolores else cfg.get("dolor", "")
     url = lead.get("url_informe", f"{INFORMES_BASE}/{lead.get('id')}")
-    prompt = f"Negocio: {nombre} ({ciudad}). PageSpeed: {ps}/100. Problema: {dolor}. URL informe: {url}. Escribe email frio B2B. Responde SOLO JSON: asunto, cuerpo_texto, cuerpo_html"
+    prompt = f"""Negocio: {nombre} ({ciudad}). PageSpeed: {ps}/100. Problema: {dolor}. URL informe: {url}.
+
+Escribe un email frio B2B corto (max 150 palabras el cuerpo). Tono directo, sin adulaciones.
+
+Responde UNICAMENTE con un objeto JSON valido, sin markdown, sin acentos invertidos, sin texto extra. El JSON debe tener exactamente estas 3 claves:
+{{"asunto": "texto del asunto", "cuerpo_texto": "version texto plano del email", "cuerpo_html": "<p>version HTML del email</p>"}}
+
+IMPORTANTE: No uses saltos de linea dentro de los valores del JSON. Usa <br> en el HTML en vez de saltos de linea. Responde SOLO el JSON."""
     headers = {"x-api-key": ANTHROPIC_API_KEY, "anthropic-version": "2023-06-01", "content-type": "application/json"}
-    body = {"model": MODELO, "max_tokens": 800, "messages": [{"role": "user", "content": prompt}]}
+    body = {"model": MODELO, "max_tokens": 1500, "messages": [{"role": "user", "content": prompt}]}
     try:
-        r = httpx.post(URL, headers=headers, json=body, timeout=30)
+        r = httpx.post(URL, headers=headers, json=body, timeout=60)
         t = r.json()["content"][0]["text"].strip().replace("```json","").replace("```","").strip()
         return json.loads(t)
     except Exception as e:
