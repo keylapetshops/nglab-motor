@@ -39,6 +39,9 @@ def _conexion():
     finally:
         con.close()
 
+# Alias publico para compatibilidad con servidor.py
+conexion = _conexion
+
 def init_db():
     with _conexion() as con:
         con.executescript(SCHEMA_LOCAL)
@@ -117,18 +120,58 @@ def actualizar_lead(lead_id: str, **campos):
             headers=_headers(),
         )
 
-def stats() -> dict:
+def lote_para_envio(limite: int) -> list[dict]:
+    """Leads redactados con email valido listos para enviar."""
+    org_id = os.getenv("ORG_ID", "")
+    params = (f"?org_id=eq.{org_id}&estado=eq.redactado"
+              f"&email=not.is.null&select=*&limit={limite}&order=created_at.asc")
+    with httpx.Client(timeout=15) as c:
+        r = c.get(_url("crm_leads") + params, headers=_headers())
+        return r.json() if r.status_code == 200 else []
+
+def email_excluido(email: str) -> bool:
+    if not email:
+        return True
     org_id = os.getenv("ORG_ID", "")
     with httpx.Client(timeout=15) as c:
         r = c.get(
-            _url("crm_leads") + f"?org_id=eq.{org_id}&select=estado",
+            _url("crm_leads") + f"?org_id=eq.{org_id}&email=eq.{email}&baja=eq.true&select=id",
             headers=_headers(),
         )
+        return bool(r.json()) if r.status_code == 200 else False
+
+def excluir_email(email: str, motivo: str = "baja_voluntaria"):
+    org_id = os.getenv("ORG_ID", "")
+    with httpx.Client(timeout=15) as c:
+        c.patch(
+            _url("crm_leads") + f"?org_id=eq.{org_id}&email=eq.{email}",
+            json={"baja": True, "estado": "descartado", "updated_at": ahora()},
+            headers=_headers(),
+        )
+
+def stats(nicho: str | None = None) -> dict:
+    org_id = os.getenv("ORG_ID", "")
+    params = f"?org_id=eq.{org_id}&select=estado"
+    if nicho:
+        params += f"&sector=eq.{nicho}"
+    with httpx.Client(timeout=15) as c:
+        r = c.get(_url("crm_leads") + params, headers=_headers())
         filas = r.json() if r.status_code == 200 else []
     conteo: dict = {"total": len(filas)}
     for f in filas:
         e = f.get("estado", "desconocido")
         conteo[e] = conteo.get(e, 0) + 1
+    return conteo
+
+def stats_por_nicho() -> dict:
+    org_id = os.getenv("ORG_ID", "")
+    with httpx.Client(timeout=15) as c:
+        r = c.get(_url("crm_leads") + f"?org_id=eq.{org_id}&select=sector", headers=_headers())
+        filas = r.json() if r.status_code == 200 else []
+    conteo: dict = {}
+    for f in filas:
+        s = f.get("sector", "desconocido")
+        conteo[s] = conteo.get(s, 0) + 1
     return conteo
 
 def cargar_json(texto: str | None):
