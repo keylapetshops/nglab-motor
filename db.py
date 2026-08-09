@@ -179,3 +179,6 @@ def cargar_json(texto: str | None):
         return json.loads(texto) if texto else None
     except json.JSONDecodeError:
         return None
+
+# Alias para compatibilidad con 1_buscar.py
+registrar_busqueda = registrar_prospeccion
