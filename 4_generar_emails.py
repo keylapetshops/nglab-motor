@@ -1,9 +1,9 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 import json, sys, time, httpx
 from config import ANTHROPIC_API_KEY, INFORMES_BASE, nicho_config
 from db import leads_por_estado, actualizar_lead, cargar_json
 
-MODELO = "claude-sonnet-4-6"
+MODELO = "claude-sonnet-4-5"
 URL = "https://api.anthropic.com/v1/messages"
 
 def generar(lead, nicho):
