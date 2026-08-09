@@ -102,7 +102,7 @@ def upsert_lead(datos: dict):
             headers={**_headers(), "Prefer": "resolution=ignore-duplicates,return=representation"},
         )
 
-def leads_por_estado(estado: str, nicho: str | None = None) -> list[dict]:
+def leads_por_estado(estado: str, con_web: bool = False, nicho: str | None = None) -> list[dict]:
     org_id = os.getenv("ORG_ID", "")
     params = f"?org_id=eq.{org_id}&estado=eq.{estado}&select=*"
     if nicho:
