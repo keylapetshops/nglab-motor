@@ -78,8 +78,12 @@ def leads_por_estado(estado, con_web=False, nicho=None):
 
 def actualizar_lead(lead_id, **campos):
     campos["updated_at"] = ahora()
-    with httpx.Client(timeout=15) as c:
-        c.patch(_url("crm_leads") + f"?id=eq.{lead_id}", json=campos, headers=_h())
+    with httpx.Client(timeout=30) as c:
+        r = c.patch(_url("crm_leads") + f"?id=eq.{lead_id}", json=campos, headers=_h())
+        if r.status_code not in (200, 204):
+            print(f"  PATCH ERROR {r.status_code}: {r.text[:200]}")
+            return False
+    return True
 
 def lote_para_envio(limite):
     org_id = os.getenv("ORG_ID", "")
