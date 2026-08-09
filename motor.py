@@ -1,21 +1,22 @@
-from __future__ import annotations
-"""NGLAB Motor — Orquestador del pipeline completo.
-
-Pipeline por ejecución:
+﻿"""
+Motor de prospeccion NGLAB.
+Pipeline por ejecucion:
   1. Buscar negocios (Google Places)
   2. Extraer emails + separar sin_web / sin_email
   3. Validar emails (sintaxis + MX DNS)
   4. Auditar web + PageSpeed
-  5. Generar emails con Claude (SOLO leads con email válido)
+  5. Generar emails con Claude (SOLO leads con email valido)
 
-Rotación automática: nicho con menos municipios completados → round-robin.
+Rotacion automatica: consulta crm_busquedas en Supabase.
 Nunca repite un combo (nicho, municipio) ya prospectado.
 """
 import importlib
 import threading
 import traceback
+import os
+import httpx
 
-from config import MUNICIPIOS, NICHOS, ANTHROPIC_API_KEY
+from config import NICHOS, ANTHROPIC_API_KEY, SUPABASE_URL, SUPABASE_SERVICE_KEY
 from db import busquedas_hechas, stats
 
 _lock = threading.Lock()
@@ -28,38 +29,48 @@ estado_motor: dict = {
 
 
 def siguientes_combos(cuantos: int) -> list[tuple[str, str, str]]:
-    """Devuelve los próximos combos (nicho, municipio, provincia) pendientes."""
+    """Devuelve los proximos combos (nicho, municipio, provincia) pendientes desde crm_busquedas."""
     hechas = busquedas_hechas()
-    total_municipios = len(MUNICIPIOS)
 
-    conteo = {n: 0 for n in NICHOS}
-    for nicho, municipio in hechas:
-        if nicho in conteo:
-            conteo[nicho] += 1
+    headers = {
+        "apikey": SUPABASE_SERVICE_KEY,
+        "Authorization": f"Bearer {SUPABASE_SERVICE_KEY}",
+    }
 
-    candidatos = [n for n in NICHOS if conteo[n] < total_municipios]
-    if not candidatos:
-        return []
+    # Obtener combos pendientes de crm_busquedas ordenados por prioridad
+    url = (
+        f"{SUPABASE_URL}/rest/v1/crm_busquedas"
+        f"?select=nicho,ciudad,provincia&order=id.asc&limit=200"
+    )
+    try:
+        with httpx.Client(timeout=15) as c:
+            r = c.get(url, headers=headers)
+            filas = r.json() if r.status_code == 200 else []
+    except Exception:
+        filas = []
 
-    orden = list(NICHOS)
-    candidatos.sort(key=lambda n: (conteo[n], orden.index(n)))
-    nicho = candidatos[0]
+    pendientes = []
+    for fila in filas:
+        nicho = fila.get("nicho", "")
+        ciudad = fila.get("ciudad", "")
+        provincia = fila.get("provincia", "")
+        if nicho in NICHOS and (nicho, ciudad) not in hechas:
+            pendientes.append((nicho, ciudad, provincia))
+        if len(pendientes) >= cuantos:
+            break
 
-    pendientes = [
-        (nicho, m, p) for m, p in MUNICIPIOS
-        if (nicho, m) not in hechas
-    ]
-    return pendientes[:cuantos]
+    return pendientes
 
 
 def ejecutar_pipeline(municipios_por_dia: int = 3) -> dict:
-    """Ejecuta el pipeline completo para los próximos municipios."""
+    """Ejecuta el pipeline completo para los proximos municipios."""
     if not _lock.acquire(blocking=False):
-        return {"ok": False, "motivo": "Ya hay una prospección en curso"}
+        return {"ok": False, "motivo": "Ya hay una prospeccion en curso"}
 
     estado_motor.update(ocupado=True, error=None)
     try:
         combos = siguientes_combos(municipios_por_dia)
+
         if not combos:
             return {
                 "ok": True,
@@ -76,11 +87,11 @@ def ejecutar_pipeline(municipios_por_dia: int = 3) -> dict:
             mod.procesar_municipio(n, municipio, provincia)
             procesados.append(municipio)
 
-        # 2. Extraer emails (separa sin_web / sin_email / con_email)
+        # 2. Extraer emails
         print("[MOTOR] 2/5 Extrayendo emails...")
         importlib.import_module("2_extraer_emails").main()
 
-        # 3. Validar emails (MX DNS) — elimina emails inválidos antes de auditar
+        # 3. Validar emails (MX DNS)
         print("[MOTOR] 3/5 Validando emails (MX)...")
         importlib.import_module("5_validar_emails").main()
 
@@ -88,7 +99,7 @@ def ejecutar_pipeline(municipios_por_dia: int = 3) -> dict:
         print("[MOTOR] 4/5 Auditando webs + PageSpeed...")
         importlib.import_module("3_auditar").main(nicho=nicho)
 
-        # 5. Generar emails con Claude (SOLO leads con email válido)
+        # 5. Generar emails con Claude (solo leads con email valido)
         if ANTHROPIC_API_KEY:
             print("[MOTOR] 5/5 Generando emails con Claude...")
             importlib.import_module("4_generar_emails").main(nicho=nicho)
