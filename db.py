@@ -1,5 +1,5 @@
 ﻿from __future__ import annotations
-import json, os, secrets, sqlite3
+import json, os, sqlite3, uuid
 from contextlib import contextmanager
 from datetime import datetime, timezone
 import httpx
@@ -56,13 +56,14 @@ def upsert_lead(datos):
         "fuente": "google_places",
         "calificacion_google": datos.get("rating"),
         "resenas_google": datos.get("num_resenas"),
-        "token_baja": secrets.token_urlsafe(16),
+        "token_baja": str(uuid.uuid4()),
         "created_at": ahora(),
         "updated_at": ahora(),
     }
     with httpx.Client(timeout=15) as c:
         r = c.post(_url("crm_leads"), json=payload, headers=_h())
-        print(f"  upsert {payload['nombre_negocio'][:25]} -> {r.status_code} {r.text[:100]}")
+        if r.status_code not in (200, 201):
+            print(f"  ERROR {r.status_code} {r.text[:100]}")
 
 def leads_por_estado(estado, con_web=False, nicho=None):
     org_id = os.getenv("ORG_ID", "")
