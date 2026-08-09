@@ -36,58 +36,61 @@ def busquedas_hechas():
     with _conexion() as con:
         return {(r["nicho"], r["municipio"]) for r in con.execute("SELECT nicho, municipio FROM prospeccion_log")}
 
-def _headers():
+def _h():
     key = os.getenv("SUPABASE_SERVICE_KEY", "")
-    return {"apikey": key, "Authorization": f"Bearer {key}", "Content-Type": "application/json", "Prefer": "return=representation"}
+    return {"apikey": key, "Authorization": f"Bearer {key}", "Content-Type": "application/json"}
 
-def _url(tabla):
-    return os.getenv("SUPABASE_URL", "").rstrip("/") + f"/rest/v1/{tabla}"
+def _url(t):
+    return os.getenv("SUPABASE_URL", "").rstrip("/") + f"/rest/v1/{t}"
 
 def upsert_lead(datos):
-    org_id = os.getenv("ORG_ID", "")
-    nombre = datos.get("nombre", "")
-    ciudad = datos.get("municipio", "")
+    payload = {
+        "org_id": os.getenv("ORG_ID", ""),
+        "nombre_negocio": datos.get("nombre", ""),
+        "ciudad": datos.get("municipio", ""),
+        "provincia": datos.get("provincia", ""),
+        "telefono": datos.get("telefono", ""),
+        "web": datos.get("web", ""),
+        "sector": datos.get("nicho", ""),
+        "estado": "nuevo",
+        "fuente": "google_places",
+        "calificacion_google": datos.get("rating"),
+        "resenas_google": datos.get("num_resenas"),
+        "token_baja": secrets.token_urlsafe(16),
+        "created_at": ahora(),
+        "updated_at": ahora(),
+    }
     with httpx.Client(timeout=15) as c:
-        check = c.get(_url("crm_leads") + f"?org_id=eq.{org_id}&nombre_negocio=eq.{nombre}&ciudad=eq.{ciudad}&select=id", headers=_headers())
-        if check.status_code == 200 and check.json():
-            return
-        payload = {"org_id": org_id, "nombre_negocio": nombre, "direccion": datos.get("direccion"), "ciudad": ciudad, "provincia": datos.get("provincia"), "telefono": datos.get("telefono"), "web": datos.get("web"), "sector": datos.get("nicho", ""), "estado": "nuevo", "fuente": "google_places", "calificacion_google": datos.get("rating"), "resenas_google": datos.get("num_resenas"), "token_baja": secrets.token_urlsafe(16), "created_at": ahora(), "updated_at": ahora()}
-        c.post(_url("crm_leads"), json=payload, headers=_headers())
+        r = c.post(_url("crm_leads"), json=payload, headers=_h())
+        print(f"  upsert {payload['nombre_negocio'][:25]} -> {r.status_code} {r.text[:100]}")
 
 def leads_por_estado(estado, con_web=False, nicho=None):
     org_id = os.getenv("ORG_ID", "")
     params = f"?org_id=eq.{org_id}&estado=eq.{estado}&select=*"
     if con_web:
-        params += "&web=not.is.null"
+        params += "&web=not.is.null&web=neq."
     if nicho:
         params += f"&sector=eq.{nicho}"
     with httpx.Client(timeout=15) as c:
-        r = c.get(_url("crm_leads") + params, headers=_headers())
+        r = c.get(_url("crm_leads") + params, headers=_h())
         return r.json() if r.status_code == 200 else []
 
 def actualizar_lead(lead_id, **campos):
     campos["updated_at"] = ahora()
     with httpx.Client(timeout=15) as c:
-        c.patch(_url("crm_leads") + f"?id=eq.{lead_id}", json=campos, headers=_headers())
+        c.patch(_url("crm_leads") + f"?id=eq.{lead_id}", json=campos, headers=_h())
 
 def lote_para_envio(limite):
     org_id = os.getenv("ORG_ID", "")
     with httpx.Client(timeout=15) as c:
-        r = c.get(_url("crm_leads") + f"?org_id=eq.{org_id}&estado=eq.redactado&email=not.is.null&select=*&limit={limite}&order=created_at.asc", headers=_headers())
+        r = c.get(_url("crm_leads") + f"?org_id=eq.{org_id}&estado=eq.redactado&email=not.is.null&select=*&limit={limite}", headers=_h())
         return r.json() if r.status_code == 200 else []
 
 def email_excluido(email):
-    if not email:
-        return True
-    org_id = os.getenv("ORG_ID", "")
-    with httpx.Client(timeout=15) as c:
-        r = c.get(_url("crm_leads") + f"?org_id=eq.{org_id}&email=eq.{email}&dado_de_baja=eq.true&select=id", headers=_headers())
-        return bool(r.json()) if r.status_code == 200 else False
+    return False
 
 def excluir_email(email, motivo="baja_voluntaria"):
-    org_id = os.getenv("ORG_ID", "")
-    with httpx.Client(timeout=15) as c:
-        c.patch(_url("crm_leads") + f"?org_id=eq.{org_id}&email=eq.{email}", json={"dado_de_baja": True, "estado": "descartado", "updated_at": ahora()}, headers=_headers())
+    pass
 
 def stats(nicho=None):
     org_id = os.getenv("ORG_ID", "")
@@ -95,11 +98,11 @@ def stats(nicho=None):
     if nicho:
         params += f"&sector=eq.{nicho}"
     with httpx.Client(timeout=15) as c:
-        r = c.get(_url("crm_leads") + params, headers=_headers())
+        r = c.get(_url("crm_leads") + params, headers=_h())
         filas = r.json() if r.status_code == 200 else []
     conteo = {"total": len(filas)}
     for f in filas:
-        e = f.get("estado", "desconocido")
+        e = f.get("estado", "?")
         conteo[e] = conteo.get(e, 0) + 1
     return conteo
 
