@@ -1,4 +1,5 @@
-﻿"""
+﻿# VERSION: 2.0 - usa crm_busquedas
+"""
 Motor de prospeccion NGLAB.
 Pipeline por ejecucion:
   1. Buscar negocios (Google Places)
@@ -124,3 +125,4 @@ def ejecutar_pipeline(municipios_por_dia: int = 3) -> dict:
     finally:
         estado_motor["ocupado"] = False
         _lock.release()
+
