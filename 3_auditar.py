@@ -1,8 +1,8 @@
-from __future__ import annotations
-"""NGLAB Motor — Paso 3: Auditoría web + PageSpeed (diferenciador N&G LAB).
+﻿from __future__ import annotations
+"""NGLAB Motor â€” Paso 3: AuditorÃ­a web + PageSpeed (diferenciador N&G LAB).
 
 Para cada lead con email analiza:
-  - Estado de la web (activa, HTTPS, móvil, SEO básico)
+  - Estado de la web (activa, HTTPS, mÃ³vil, SEO bÃ¡sico)
   - Velocidad de carga real (PageSpeed API)
   - Presencia en redes sociales
   - Citas/reservas online
@@ -78,7 +78,7 @@ def auditar_web(url: str) -> dict:
 
 
 def obtener_pagespeed(url: str) -> dict:
-    """Llama a PageSpeed API y devuelve las métricas clave."""
+    """Llama a PageSpeed API y devuelve las mÃ©tricas clave."""
     if not PAGESPEED_API_KEY:
         return {}
     try:
@@ -110,7 +110,7 @@ def obtener_pagespeed(url: str) -> dict:
 
 def detectar_pain_points(lead: dict, auditoria: dict,
                           pagespeed: dict) -> list[str]:
-    """Traduce la auditoría en dolores de negocio concretos del nicho."""
+    """Traduce la auditorÃ­a en dolores de negocio concretos del nicho."""
     nicho = lead.get("sector") or "otro"
     cfg = NICHOS.get(nicho, NICHOS["otro"])
     dolores: list[str] = []
@@ -119,22 +119,22 @@ def detectar_pain_points(lead: dict, auditoria: dict,
     if not a.get("web_activa"):
         dolores.append(
             "Su web no responde o da error: pierden clientes que "
-            "les buscan online cada día"
+            "les buscan online cada dÃ­a"
         )
         dolores.append(f"Problema del sector: {cfg['dolor']}")
         return dolores[:4]
 
-    # PageSpeed — puntuación baja
+    # PageSpeed â€” puntuaciÃ³n baja
     ps = pagespeed.get("puntuacion_mobile", 0)
     if ps and ps < 50:
         dolores.append(
-            f"Vuestra web tiene una puntuación de velocidad de {ps}/100 en móvil: "
+            f"Vuestra web tiene una puntuaciÃ³n de velocidad de {ps}/100 en mÃ³vil: "
             "Google penaliza las webs lentas y los usuarios las abandonan antes de ver el negocio"
         )
     elif ps and ps < 80:
         dolores.append(
-            f"La velocidad en móvil es mejorable ({ps}/100): "
-            "el 80% de los clientes buscan desde el móvil y cada segundo de espera "
+            f"La velocidad en mÃ³vil es mejorable ({ps}/100): "
+            "el 80% de los clientes buscan desde el mÃ³vil y cada segundo de espera "
             "son clientes que se van"
         )
 
@@ -145,11 +145,11 @@ def detectar_pain_points(lead: dict, auditoria: dict,
             "y Google la penaliza en el posicionamiento"
         )
 
-    # Móvil
+    # MÃ³vil
     if not a.get("movil_optimizada"):
         dolores.append(
-            "La web no está optimizada para móvil: el 80% de sus clientes "
-            "buscan desde el teléfono y probablemente la están viendo mal"
+            "La web no estÃ¡ optimizada para mÃ³vil: el 80% de sus clientes "
+            "buscan desde el telÃ©fono y probablemente la estÃ¡n viendo mal"
         )
 
     # Citas online
@@ -161,15 +161,15 @@ def detectar_pain_points(lead: dict, auditoria: dict,
     # WhatsApp
     if not a.get("tiene_whatsapp"):
         dolores.append(
-            "Sin botón de WhatsApp en la web: los clientes prefieren "
+            "Sin botÃ³n de WhatsApp en la web: los clientes prefieren "
             "escribir antes que llamar, y sin ese canal los pierden"
         )
 
-    # SEO básico
+    # SEO bÃ¡sico
     if not a.get("tiene_titulo_seo") or not a.get("tiene_meta_descripcion"):
         dolores.append(
-            "SEO básico sin trabajar: pierden visibilidad en búsquedas "
-            "locales frente a competidores que sí lo tienen configurado"
+            "SEO bÃ¡sico sin trabajar: pierden visibilidad en bÃºsquedas "
+            "locales frente a competidores que sÃ­ lo tienen configurado"
         )
 
     return dolores[:4]
@@ -181,15 +181,15 @@ def main(nicho: str | None = None):
     if nicho:
         nicho_config(nicho)
 
-    pendientes = leads_por_estado("con_email", con_web=True, nicho=nicho)
-    print(f"Leads pendientes de auditoría: {len(pendientes)}")
+    pendientes = leads_por_estado("pendiente_revision", con_web=True, nicho=nicho)
+    print(f"Leads pendientes de auditorÃ­a: {len(pendientes)}")
 
     for i, lead in enumerate(pendientes, 1):
         web = lead.get("web", "")
         if not web:
             continue
 
-        # Auditoría básica
+        # AuditorÃ­a bÃ¡sica
         a = auditar_web(web)
 
         # PageSpeed (el diferenciador de N&G LAB)
@@ -219,3 +219,4 @@ def main(nicho: str | None = None):
 
 if __name__ == "__main__":
     main()
+

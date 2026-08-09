@@ -1,12 +1,12 @@
-from __future__ import annotations
-"""NGLAB Motor — Paso 5: Validar emails (sintaxis + DNS + MX).
+﻿from __future__ import annotations
+"""NGLAB Motor â€” Paso 5: Validar emails (sintaxis + DNS + MX).
 
-Tres niveles de validación:
+Tres niveles de validaciÃ³n:
   1. Sintaxis estricta (RFC simplificado)
   2. El dominio existe (DNS)
   3. El dominio acepta correo (registros MX)
 
-Los emails inválidos → lead pasa a 'sin_email' (cola WhatsApp/llamada).
+Los emails invÃ¡lidos â†’ lead pasa a 'sin_email' (cola WhatsApp/llamada).
 NUNCA aparecen en la cola de email.
 """
 import re
@@ -65,7 +65,7 @@ def validar(email: str) -> tuple[bool, str]:
 
 def main():
     # Solo validar leads con email en estados relevantes
-    estados = ["con_email", "auditado", "listo_para_enviar"]
+    estados = ["pendiente_revision", "auditado", "listo_para_enviar"]
     leads = []
     for estado in estados:
         leads.extend(leads_por_estado(estado))
@@ -84,18 +84,19 @@ def main():
                   f"{lead['email']:42} OK")
         else:
             descartados += 1
-            # Email inválido → cola WhatsApp, NUNCA email
+            # Email invÃ¡lido â†’ cola WhatsApp, NUNCA email
             actualizar_lead(lead["id"],
                             email_invalido=True,
-                            estado="sin_email" if lead.get("estado") == "con_email"
+                            estado="sin_email" if lead.get("estado") == "pendiente_revision"
                             else lead.get("estado"))
             print(f"[{i}/{len(leads)}] {lead['nombre_negocio'][:38]:38} "
                   f"{lead['email']:42} DESCARTADO ({motivo})")
         time.sleep(0.05)
 
-    print(f"\nVálidos: {validos} · Descartados: {descartados}")
+    print(f"\nVÃ¡lidos: {validos} Â· Descartados: {descartados}")
     print("Resumen:", stats())
 
 
 if __name__ == "__main__":
     main()
+
