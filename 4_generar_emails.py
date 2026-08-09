@@ -6,6 +6,23 @@ from db import leads_por_estado, actualizar_lead, cargar_json
 MODELO = "claude-sonnet-4-5"
 URL = "https://api.anthropic.com/v1/messages"
 
+SYSTEM_PROMPT = """Eres el copywriter senior de N&G LAB Digital, una agencia de marketing y tecnologia en Valencia. Escribes emails frios B2B que suenan como si una persona real hubiera dedicado tiempo a estudiar ese negocio concreto.
+
+TU PERSONALIDAD AL ESCRIBIR:
+- Hablas como Jesica, la fundadora: cercana, directa, segura, sin arrogancia
+- Tuteas siempre, pero con respeto profesional
+- Nunca usas palabras tecnicas que el dueno de un negocio local no entienda
+- No adulas. No dices "excelente negocio" ni "gran trabajo". Si algo es bueno, lo dices con datos concretos
+- Cada frase tiene un proposito. Si no aporta, la quitas
+- Generas curiosidad sin ser agresiva. Muestras el problema sin asustar
+
+REGLAS DE CALIDAD:
+- Usa los datos REALES del lead: puntuacion exacta, numero de resenas, rating, ciudad, nombre del negocio
+- Los pain points no son genericos: son especificos de lo que has encontrado en SU negocio
+- El asunto del email debe tener maximo 7 palabras y mencionar el nombre del negocio
+- No repitas la misma estructura en todos los emails: varia la entrada, el enfoque, el cierre
+- Escribe como si fuera UN email para UNA persona, no una plantilla para 200"""
+
 def generar(lead, nicho):
     cfg = nicho_config(nicho)
     nombre = lead.get("nombre_negocio", "")
@@ -23,60 +40,57 @@ def generar(lead, nicho):
     sector_label = cfg.get("sector_label", "negocios")
 
     if tiene_web:
-        contexto = f"""CASO: CON WEB ({web})
-PageSpeed movil: {ps}/100. Rating Google: {rating}. Resenas: {resenas}.
-Pain points detectados:
-1. {dolor1}
-2. {dolor2}
-3. {dolor3}
-URL del informe: {url}
+        caso = f"""DATOS DEL NEGOCIO:
+- Nombre: {nombre}
+- Ciudad: {ciudad}
+- Sector: {nicho}
+- Web: {web}
+- PageSpeed movil: {ps}/100
+- Rating Google: {rating}
+- Resenas Google: {resenas}
+- Pain point 1: {dolor1}
+- Pain point 2: {dolor2}
+- Pain point 3: {dolor3}
+- URL del informe: {url}
 
-Los tres puntos con flecha deben basarse en los pain points reales de su web.
-CTA principal: "Ver mi analisis gratuito" con enlace al informe.
-"""
+TIPO: CON WEB
+Escribe el email usando los pain points reales de su web. Incluye el boton "Ver el analisis de mi negocio" con el enlace al informe. Cierra con opcion de WhatsApp."""
     else:
-        contexto = f"""CASO: SIN WEB
-Rating Google: {rating}. Resenas: {resenas}.
-Este negocio NO tiene pagina web.
+        caso = f"""DATOS DEL NEGOCIO:
+- Nombre: {nombre}
+- Ciudad: {ciudad}
+- Sector: {nicho}
+- Web: NO TIENE
+- Rating Google: {rating}
+- Resenas Google: {resenas}
 
-Los tres puntos con flecha deben ser:
-1. Que no tiene web y sus competidores si — cada dia pierde pacientes que buscan en Google y encuentran a la competencia
-2. Su ficha de Google Business: tiene {resenas} resenas con un {rating} — como se compara con la competencia en {ciudad}
-3. Si alguien pregunta a ChatGPT por {sector_label} en {ciudad}, este negocio no aparece — los que si aparecen estan captando clientes sin hacer nada
+TIPO: SIN WEB
+Este negocio no tiene pagina web. Los tres puntos deben girar en torno a:
+1. No tener web cuando su competencia si la tiene — que esta perdiendo
+2. Su perfil de Google Business: {resenas} resenas con un {rating} — como se compara
+3. Si alguien pregunta a una IA por {sector_label} en {ciudad}, no aparece
 
-NO incluyas enlace a informe ni CTA de "Ver mi analisis".
-CTA principal: "Quieres que te expliquemos como empezar? Escribenos por WhatsApp."
-"""
+NO incluyas enlace a informe. El CTA principal es WhatsApp."""
 
-    prompt = f"""Eres Jesica, de N&G LAB Digital. Escribe un email frio B2B para {nombre} ({ciudad}).
-Sector: {nicho}.
+    prompt = f"""{caso}
 
-{contexto}
+ESTRUCTURA DEL EMAIL:
+1. "Hola," (siempre)
+2. Presentacion corta de Jesica y N&G LAB — por que les escribes, que has hecho (NO uses la frase "llevamos semanas analizando" en todos, varia)
+3. Una frase destacada con el nombre del negocio
+4. "He mirado vuestro caso y hay tres cosas que creo que os interesa saber:" (o variacion natural)
+5. Tres puntos con flecha (→) usando los datos REALES — que suenen a que alguien ha dedicado tiempo a mirar SU caso, no una plantilla
+6. Cierre con CTA segun el tipo (con o sin web)
+7. Opcion de WhatsApp
+8. Firma: Jesica Marquez / N&G LAB Digital / nglabdigital.com
 
-ESTRUCTURA OBLIGATORIA del email:
-1. Saludo "Hola," (tuteo siempre)
-2. Presentacion: "Soy Jesica, de N&G LAB Digital. Llevamos semanas analizando la visibilidad online de {sector_label} en {ciudad} — no todas, solo las que consideramos que tienen potencial real para crecer digitalmente."
-3. Frase: "{nombre} es uno de ellos." o "una de ellas." segun el nombre
-4. "Hemos preparado un analisis gratuito con tres datos que probablemente no conoces sobre tu presencia digital:"
-5. Tres puntos con flecha (→) redactados de forma que generen curiosidad sin ser agresivos
-6. Cierre segun el caso (con o sin web)
-7. "Quieres que te expliquemos los resultados? Escribenos por WhatsApp y te atendemos en menos de 24 horas."
-8. Firma: "Un saludo, Jesica Marquez — N&G LAB Digital — nglabdigital.com"
+FORMATO DE RESPUESTA — JSON puro, sin markdown:
+{{"asunto": "maximo 7 palabras con nombre del negocio", "cuerpo_texto": "version texto plano del email", "cuerpo_html": "version HTML del email usando <br> para saltos de linea, <strong> para negritas, <p> para parrafos"}}
 
-REGLAS:
-- Maximo 180 palabras el cuerpo
-- Tuteo siempre, nunca usted
-- Tono cercano pero profesional, sin adulaciones falsas
-- No uses acentos en el JSON (escribir "analisis" no "análisis")
-- El asunto debe ser corto y generar curiosidad, maximo 8 palabras
-
-Responde UNICAMENTE con un objeto JSON valido, sin markdown, sin acentos invertidos. Formato exacto:
-{{"asunto": "texto del asunto", "cuerpo_texto": "version texto plano", "cuerpo_html": "<p>version HTML con <br> para saltos de linea</p>"}}
-
-IMPORTANTE: No uses saltos de linea dentro de los valores del JSON. Usa <br> en el HTML. Responde SOLO el JSON."""
+El cuerpo_html debe incluir las flechas → para los puntos. No uses saltos de linea reales dentro de los valores JSON. Maximo 200 palabras el cuerpo. Responde SOLO el JSON."""
 
     headers = {"x-api-key": ANTHROPIC_API_KEY, "anthropic-version": "2023-06-01", "content-type": "application/json"}
-    body = {"model": MODELO, "max_tokens": 2000, "messages": [{"role": "user", "content": prompt}]}
+    body = {"model": MODELO, "max_tokens": 2000, "messages": [{"role": "system", "content": SYSTEM_PROMPT}, {"role": "user", "content": prompt}]}
     try:
         r = httpx.post(URL, headers=headers, json=body, timeout=60)
         t = r.json()["content"][0]["text"].strip().replace("```json","").replace("```","").strip()
