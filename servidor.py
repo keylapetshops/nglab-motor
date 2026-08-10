@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 """NGLAB Motor — Servidor API (FastAPI) para Railway.
 
 Endpoints:
@@ -29,8 +29,7 @@ from fastapi.responses import HTMLResponse, Response
 
 from config import (LOTE_DIARIO, SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS,
                     REMITENTE_NOMBRE, REMITENTE_EMAIL, EMPRESA_LEGAL, BASE_URL)
-from db import (lote_para_envio, actualizar_lead, excluir_email,
-                stats, ahora, email_excluido)
+from db import lote_para_envio, actualizar_lead, excluir_email, stats, ahora, email_excluido
 from motor import ejecutar_pipeline, estado_motor, siguientes_combos
 
 MOTOR_API_KEY = os.getenv("MOTOR_API_KEY", "")
@@ -54,9 +53,9 @@ def verificar(x_api_key: str | None) -> None:
         raise HTTPException(401, "X-API-Key inválida o ausente")
 
 
-# ---------------------------------------------------------------------------
+# --------------------------------------------------------------------------
 # Endpoints públicos
-# ---------------------------------------------------------------------------
+# --------------------------------------------------------------------------
 
 @app.get("/salud")
 def salud():
@@ -66,7 +65,6 @@ def salud():
 @app.get("/px/{token}.gif")
 def pixel(token: str):
     """Marca la apertura del email. Endpoint público."""
-    from db import leads_por_estado
     import httpx
     from config import SUPABASE_URL, SUPABASE_SERVICE_KEY, ORG_ID
 
@@ -141,7 +139,7 @@ def baja(token: str):
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Baja confirmada · N&G LAB</title>
 <style>
-  body {{ background:#14141A; color:#e8e8e8; font-family:system-ui,sans-serif;
+  body {{ background:#141414; color:#e8e8e8; font-family:system-ui,sans-serif;
          display:grid; place-items:center; min-height:100vh; margin:0; }}
   .card {{ max-width:420px; padding:2.5rem; text-align:center; }}
   h1 {{ color:#C8FF00; font-size:1.4rem; }}
@@ -150,14 +148,14 @@ def baja(token: str):
 <body><div class="card">
   <h1>Baja confirmada</h1>
   <p>El buzón <strong>{email}</strong> no volverá a recibir
-     comunicaciones comerciales de N&amp;G LAB Digital.</p>
+  comunicaciones comerciales de N&amp;G LAB Digital.</p>
   <p>Gracias por tu tiempo.</p>
 </div></body></html>"""
 
 
-# ---------------------------------------------------------------------------
+# --------------------------------------------------------------------------
 # Endpoints protegidos
-# ---------------------------------------------------------------------------
+# --------------------------------------------------------------------------
 
 @app.post("/api/prospectar")
 def api_prospectar(
@@ -268,8 +266,8 @@ def api_enviar_directo(
         raise HTTPException(409, "Lead dado de baja")
 
     asunto = lead.get("email_asunto")
-    html = lead.get("email_html")
-    texto = lead.get("email_cuerpo")
+    html   = lead.get("email_html")
+    texto  = lead.get("email_cuerpo")
 
     if not asunto or not html:
         raise HTTPException(400, "El email aún no está generado. Ejecuta el pipeline primero.")
@@ -294,46 +292,58 @@ def api_enviar_directo(
     return {"ok": True, "enviado_a": lead["email"]}
 
 
-# ---------------------------------------------------------------
-# Scheduler automatico - ejecuta pipeline diario a las 8:00 CEST
-# ---------------------------------------------------------------
+# --------------------------------------------------------------------------
+# Scheduler automático - ejecuta pipeline a las 8:00 y envío a las 9:00 CEST
+# --------------------------------------------------------------------------
 import threading
 from datetime import datetime, timezone, timedelta
 
 ZONA_ESPANA = timezone(timedelta(hours=2))
 
+
 def _scheduler_loop():
-    """Hilo que revisa cada 60s si es hora de lanzar el pipeline."""
+    """Hilo que revisa cada 60s si es hora de lanzar tareas programadas."""
     import time as _time
-    ultima_fecha = None
+    # FIX: dos variables separadas — antes era una sola y el 08:00 bloqueaba el 09:00
+    ultima_fecha_pipeline = None
+    ultima_fecha_envio    = None
+
     while True:
         try:
-            ahora_es = datetime.now(ZONA_ESPANA)
+            ahora_es  = datetime.now(ZONA_ESPANA)
             fecha_hoy = ahora_es.strftime("%Y-%m-%d")
-            if ahora_es.hour == 8 and ahora_es.minute < 2 and fecha_hoy != ultima_fecha:
+
+            # 08:00 — pipeline de prospección
+            if (ahora_es.hour == 8 and ahora_es.minute < 2
+                    and fecha_hoy != ultima_fecha_pipeline):
                 if not estado_motor["ocupado"]:
-                    print(f"[SCHEDULER] {fecha_hoy} 08:00 - Lanzando pipeline automatico...")
+                    print(f"[SCHEDULER] {fecha_hoy} 08:00 – Lanzando pipeline automatico...")
                     try:
                         ejecutar_pipeline(3)
                     except Exception as e:
-                        print(f"[SCHEDULER] Error: {e}")
-                    ultima_fecha = fecha_hoy
-            if ahora_es.hour == 9 and ahora_es.minute < 2 and fecha_hoy != ultima_fecha:
+                        print(f"[SCHEDULER] Error pipeline: {e}")
+                ultima_fecha_pipeline = fecha_hoy
+
+            # 09:00 — envío de lote diario de emails
+            if (ahora_es.hour == 9 and ahora_es.minute < 2
+                    and fecha_hoy != ultima_fecha_envio):
                 if not estado_motor["ocupado"]:
-                    print(f"[SCHEDULER] {fecha_hoy} 09:00 - Enviando lote diario...")
+                    print(f"[SCHEDULER] {fecha_hoy} 09:00 – Enviando lote diario...")
                     try:
                         import importlib
                         mod = importlib.import_module("7_enviar_lote")
                         mod.enviar_lote()
                     except Exception as e:
                         print(f"[SCHEDULER] Error envio: {e}")
+                ultima_fecha_envio = fecha_hoy
+
         except Exception as e:
             print(f"[SCHEDULER] Error en loop: {e}")
         _time.sleep(60)
+
 
 @app.on_event("startup")
 def iniciar_scheduler():
     t = threading.Thread(target=_scheduler_loop, daemon=True)
     t.start()
-    print("[SCHEDULER] Activo - pipeline diario a las 08:00 CEST")
-
+    print("[SCHEDULER] Activo – pipeline 08:00 · emails 09:00 CEST")
