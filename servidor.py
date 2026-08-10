@@ -1,4 +1,4 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 """NGLAB Motor — Servidor API (FastAPI) para Railway.
 
 Endpoints:
@@ -292,3 +292,38 @@ def api_enviar_directo(
 
     actualizar_lead(lead_id, estado="contactado", fecha_email=ahora())
     return {"ok": True, "enviado_a": lead["email"]}
+
+
+# ---------------------------------------------------------------
+# Scheduler automatico - ejecuta pipeline diario a las 8:00 CEST
+# ---------------------------------------------------------------
+import threading
+from datetime import datetime, timezone, timedelta
+
+ZONA_ESPANA = timezone(timedelta(hours=2))
+
+def _scheduler_loop():
+    """Hilo que revisa cada 60s si es hora de lanzar el pipeline."""
+    import time as _time
+    ultima_fecha = None
+    while True:
+        try:
+            ahora_es = datetime.now(ZONA_ESPANA)
+            fecha_hoy = ahora_es.strftime("%Y-%m-%d")
+            if ahora_es.hour == 8 and ahora_es.minute < 2 and fecha_hoy != ultima_fecha:
+                if not estado_motor["ocupado"]:
+                    print(f"[SCHEDULER] {fecha_hoy} 08:00 - Lanzando pipeline automatico...")
+                    try:
+                        ejecutar_pipeline(3)
+                    except Exception as e:
+                        print(f"[SCHEDULER] Error: {e}")
+                    ultima_fecha = fecha_hoy
+        except Exception as e:
+            print(f"[SCHEDULER] Error en loop: {e}")
+        _time.sleep(60)
+
+@app.on_event("startup")
+def iniciar_scheduler():
+    t = threading.Thread(target=_scheduler_loop, daemon=True)
+    t.start()
+    print("[SCHEDULER] Activo - pipeline diario a las 08:00 CEST")
