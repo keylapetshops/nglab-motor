@@ -154,6 +154,47 @@ def baja(token: str):
 
 
 # --------------------------------------------------------------------------
+# Endpoint público: informe HTML por lead
+# --------------------------------------------------------------------------
+
+@app.get("/informe/{lead_id}", response_class=HTMLResponse)
+def ver_informe(lead_id: str):
+    """Sirve el informe HTML de un lead directamente desde Python. Público."""
+    import json as _json
+    import importlib
+    import httpx
+    from config import SUPABASE_URL, SUPABASE_SERVICE_KEY, ORG_ID
+
+    _headers = {
+        "apikey": SUPABASE_SERVICE_KEY,
+        "Authorization": f"Bearer {SUPABASE_SERVICE_KEY}",
+    }
+    with httpx.Client(timeout=10) as c:
+        r = c.get(
+            f"{SUPABASE_URL}/rest/v1/crm_leads"
+            f"?id=eq.{lead_id}&org_id=eq.{ORG_ID}&select=*",
+            headers=_headers,
+        )
+    if r.status_code != 200 or not r.json():
+        raise HTTPException(404, "Informe no encontrado")
+
+    lead = r.json()[0]
+
+    # Extraer puntuacion_mobile del JSON de auditoría
+    auditoria_raw = lead.get("auditoria") or "{}"
+    try:
+        auditoria = _json.loads(auditoria_raw) if isinstance(auditoria_raw, str) else auditoria_raw
+    except Exception:
+        auditoria = {}
+    ps_data = auditoria.get("pagespeed") or {}
+    lead["pagespeed_mobile"] = ps_data.get("puntuacion_mobile", 0) or 0
+
+    mod  = importlib.import_module("6_generar_informe")
+    html = mod.generar_html(lead)
+    return HTMLResponse(content=html)
+
+
+# --------------------------------------------------------------------------
 # Endpoints protegidos
 # --------------------------------------------------------------------------
 
