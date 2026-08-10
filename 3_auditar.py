@@ -202,7 +202,7 @@ def main(nicho: str | None = None):
         actualizar_lead(
             lead["id"],
             auditoria=json.dumps({**a, "pagespeed": ps}, ensure_ascii=False),
-            pain_points=json.dumps(dolores, ensure_ascii=False),
+            pain_points=dolores,
             estado="auditado",
             fecha_analisis=__import__("db").ahora(),
         )
