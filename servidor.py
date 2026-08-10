@@ -318,6 +318,15 @@ def _scheduler_loop():
                     except Exception as e:
                         print(f"[SCHEDULER] Error: {e}")
                     ultima_fecha = fecha_hoy
+            if ahora_es.hour == 9 and ahora_es.minute < 2 and fecha_hoy != ultima_fecha:
+                if not estado_motor["ocupado"]:
+                    print(f"[SCHEDULER] {fecha_hoy} 09:00 - Enviando lote diario...")
+                    try:
+                        import importlib
+                        mod = importlib.import_module("7_enviar_lote")
+                        mod.enviar_lote()
+                    except Exception as e:
+                        print(f"[SCHEDULER] Error envio: {e}")
         except Exception as e:
             print(f"[SCHEDULER] Error en loop: {e}")
         _time.sleep(60)
@@ -327,3 +336,4 @@ def iniciar_scheduler():
     t = threading.Thread(target=_scheduler_loop, daemon=True)
     t.start()
     print("[SCHEDULER] Activo - pipeline diario a las 08:00 CEST")
+
