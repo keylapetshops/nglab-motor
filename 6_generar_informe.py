@@ -1,7 +1,7 @@
 ﻿"""NGLAB Motor - Generador de informes HTML por lead."""
 import os
 import httpx
-from db import _headers, _url, leads_por_estado, actualizar_lead, ahora
+from db import leads_por_estado, actualizar_lead, ahora
 from config import BASE_URL
 
 STORAGE_URL = os.getenv("SUPABASE_URL") + "/storage/v1/object/informes"
