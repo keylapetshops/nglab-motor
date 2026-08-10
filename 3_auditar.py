@@ -87,7 +87,7 @@ def obtener_pagespeed(url: str) -> dict:
     try:
         api_url = (
             f"https://www.googleapis.com/pagespeedonline/v5/runPagespeed"
-            f"?url={url}&strategy=mobile&key={PAGESPEED_API_KEY}"
+            f"?url={url}&strategy=mobile&key={PAGESPEED_API_KEY}&category=performance&category=accessibility&category=best-practices&category=seo"
         )
         with httpx.Client(timeout=60) as c:
             r = c.get(api_url)
@@ -101,6 +101,15 @@ def obtener_pagespeed(url: str) -> dict:
         return {
             "puntuacion_mobile": round(
                 (cats.get("performance", {}).get("score", 0) or 0) * 100
+            ),
+            "accesibilidad": round(
+                (cats.get("accessibility", {}).get("score", 0) or 0) * 100
+            ),
+            "buenas_practicas": round(
+                (cats.get("best-practices", {}).get("score", 0) or 0) * 100
+            ),
+            "seo": round(
+                (cats.get("seo", {}).get("score", 0) or 0) * 100
             ),
             "lcp": audits.get("largest-contentful-paint", {}).get("displayValue", ""),
             "fid": audits.get("total-blocking-time", {}).get("displayValue", ""),
