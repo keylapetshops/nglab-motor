@@ -5,6 +5,7 @@ from db import leads_por_estado, actualizar_lead, cargar_json
 
 MODELO = "claude-sonnet-4-5"
 URL = "https://api.anthropic.com/v1/messages"
+MOTOR_URL = "https://nglab-motor-production.up.railway.app"
 
 SYSTEM_PROMPT = """Eres el copywriter senior de N&G LAB Digital, una agencia de marketing y tecnologia en Valencia. Escribes emails frios B2B que suenan como si una persona real hubiera dedicado tiempo a estudiar ese negocio concreto.
 
@@ -105,10 +106,15 @@ def main(nicho=None):
     for lead in leads:
         lid = lead.get("id")
         nombre = lead.get("nombre_negocio", "")
+        token = lead.get("token_baja", "")
         n = nicho or lead.get("sector", "general")
         r = generar(lead, n)
         if r:
-            actualizar_lead(lid, email_asunto=r.get("asunto"), email_cuerpo=r.get("cuerpo_texto"), email_html=r.get("cuerpo_html"), estado="listo_para_enviar")
+            html = r.get("cuerpo_html", "")
+            pixel = f'<img src="{MOTOR_URL}/px/{token}.gif" width="1" height="1" style="display:none">'
+            baja = f'<p style="text-align:center;margin-top:30px;padding-top:20px;border-top:1px solid #2a2a35;"><a href="{MOTOR_URL}/baja/{token}" style="color:#666;font-size:11px;text-decoration:underline;">No quiero recibir mas emails</a></p>'
+            html_final = html + baja + pixel
+            actualizar_lead(lid, email_asunto=r.get("asunto"), email_cuerpo=r.get("cuerpo_texto"), email_html=html_final, estado="listo_para_enviar")
             print(f"  OK {nombre}")
         else:
             print(f"  ERROR {nombre}")
@@ -116,4 +122,3 @@ def main(nicho=None):
 
 if __name__ == "__main__":
     main(sys.argv[1] if len(sys.argv) > 1 else None)
-
