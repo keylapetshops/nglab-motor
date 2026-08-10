@@ -324,7 +324,7 @@ def _scheduler_loop():
                         print(f"[SCHEDULER] Error pipeline: {e}")
                 ultima_fecha_pipeline = fecha_hoy
 
-            # 09:00 — envío de lote diario de emails
+            # 09:00 — envío de lote diario + secuencia de seguimiento
             if (ahora_es.hour == 9 and ahora_es.minute < 2
                     and fecha_hoy != ultima_fecha_envio):
                 if not estado_motor["ocupado"]:
@@ -334,7 +334,13 @@ def _scheduler_loop():
                         mod = importlib.import_module("7_enviar_lote")
                         mod.enviar_lote()
                     except Exception as e:
-                        print(f"[SCHEDULER] Error envio: {e}")
+                        print(f"[SCHEDULER] Error envio lote: {e}")
+                    # Secuencia emails 2 y 3
+                    try:
+                        mod2 = importlib.import_module("8_seguimiento")
+                        mod2.enviar_seguimiento()
+                    except Exception as e:
+                        print(f"[SCHEDULER] Error seguimiento: {e}")
                 ultima_fecha_envio = fecha_hoy
 
         except Exception as e:
