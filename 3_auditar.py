@@ -1,5 +1,4 @@
-﻿from __future__ import annotations
-"""NGLAB Motor â€” Paso 3: Auditoría web + PageSpeed (diferenciador N&G LAB).
+"""NGLAB Motor — Paso 3: Auditoría web + PageSpeed (diferenciador N&G LAB).
 
 Para cada lead con email analiza:
   - Estado de la web (activa, HTTPS, móvil, SEO básico)
@@ -7,6 +6,10 @@ Para cada lead con email analiza:
   - Presencia en redes sociales
   - Citas/reservas online
   - WhatsApp en la web
+
+Para leads SIN web analiza:
+  - Datos de Google Business (calificación, reseñas)
+  - Ausencia de presencia digital como pain point principal
 
 Traduce los resultados a pain points concretos del nicho.
 
@@ -109,7 +112,7 @@ def obtener_pagespeed(url: str) -> dict:
 
 
 def detectar_pain_points(lead: dict, auditoria: dict,
-                          pagespeed: dict) -> list[str]:
+                         pagespeed: dict) -> list[str]:
     """Traduce la auditoría en dolores de negocio concretos del nicho."""
     nicho = lead.get("sector") or "otro"
     cfg = NICHOS.get(nicho, NICHOS["otro"])
@@ -124,7 +127,7 @@ def detectar_pain_points(lead: dict, auditoria: dict,
         dolores.append(f"Problema del sector: {cfg['dolor']}")
         return dolores[:4]
 
-    # PageSpeed â€” puntuación baja
+    # PageSpeed — puntuación baja
     ps = pagespeed.get("puntuacion_mobile", 0)
     if ps and ps < 50:
         dolores.append(
@@ -175,16 +178,68 @@ def detectar_pain_points(lead: dict, auditoria: dict,
     return dolores[:4]
 
 
+def detectar_pain_points_sin_web(lead: dict) -> list[str]:
+    """Genera pain points para leads SIN web usando datos de Google Business."""
+    nicho = lead.get("sector") or "otro"
+    cfg = NICHOS.get(nicho, NICHOS["otro"])
+    dolores: list[str] = []
+
+    calificacion = lead.get("calificacion_google")
+    resenas = lead.get("resenas_google") or 0
+
+    # Pain point principal: no tienen web
+    dolores.append(
+        f"Sin página web propia: cuando alguien busca en Google, "
+        f"solo ven el perfil de Maps — pierden clientes frente a "
+        f"competidores que sí tienen web y aparecen primero"
+    )
+
+    # Pocas reseñas en Google
+    if resenas < 10:
+        dolores.append(
+            f"Solo {resenas} reseña{'s' if resenas != 1 else ''} en Google: "
+            f"los clientes comparan antes de llamar y eligen negocios "
+            f"con más valoraciones"
+        )
+    elif resenas < 50:
+        dolores.append(
+            f"Con {resenas} reseñas en Google tienen base, pero sus "
+            f"competidores con más valoraciones se llevan la mayoría de clics"
+        )
+
+    # Calificación baja
+    if calificacion is not None and calificacion < 4.0:
+        dolores.append(
+            f"Calificación de {calificacion}/5 en Google: "
+            f"la mayoría de clientes descarta negocios por debajo de 4 estrellas "
+            f"sin ni siquiera llamar"
+        )
+    elif calificacion is not None and calificacion < 4.5:
+        dolores.append(
+            f"Con {calificacion}/5 en Google están bien, pero los negocios "
+            f"con 4.5+ se llevan el doble de clics en los resultados locales"
+        )
+
+    # Sin presencia digital = sin reservas fuera de horario
+    dolores.append(
+        f"Sin web no pueden recibir {cfg.get('dolor', 'solicitudes de clientes')} "
+        f"fuera del horario de atención — cada noche pierden oportunidades"
+    )
+
+    return dolores[:4]
+
+
 def main(nicho: str | None = None):
     if nicho is None:
         nicho = sys.argv[1].lower() if len(sys.argv) > 1 else None
     if nicho:
         nicho_config(nicho)
 
-    pendientes = leads_por_estado("pendiente_revision", con_web=True, nicho=nicho)
-    print(f"Leads pendientes de auditoría: {len(pendientes)}")
+    # ── FLUJO 1: Leads CON web ──────────────────────────────────────────────
+    pendientes_con_web = leads_por_estado("pendiente_revision", con_web=True, nicho=nicho)
+    print(f"Leads CON web pendientes de auditoría: {len(pendientes_con_web)}")
 
-    for i, lead in enumerate(pendientes, 1):
+    for i, lead in enumerate(pendientes_con_web, 1):
         web = lead.get("web", "")
         if not web:
             continue
@@ -204,20 +259,45 @@ def main(nicho: str | None = None):
             auditoria=json.dumps({**a, "pagespeed": ps}, ensure_ascii=False),
             pain_points=dolores,
             estado="auditado",
-            fecha_analisis=__import__("db").ahora(),
+            fecha_analisis=ahora(),
         )
 
         ps_score = ps.get("puntuacion_mobile", "?")
         print(
-            f"[{i}/{len(pendientes)}] {lead['nombre_negocio'][:38]:38} "
+            f"[{i}/{len(pendientes_con_web)}] {lead['nombre_negocio'][:38]:38} "
             f"PS:{ps_score:>3} -> {len(dolores)} pain points"
         )
         time.sleep(0.5)
+
+    # ── FLUJO 2: Leads SIN web ──────────────────────────────────────────────
+    pendientes_sin_web = leads_por_estado("pendiente_revision", con_web=False, nicho=nicho)
+    print(f"\nLeads SIN web pendientes de auditoría: {len(pendientes_sin_web)}")
+
+    for i, lead in enumerate(pendientes_sin_web, 1):
+        # Pain points basados en Google Business
+        dolores = detectar_pain_points_sin_web(lead)
+
+        # Auditoría mínima para leads sin web
+        a = {"web_activa": False, "sin_web": True}
+
+        # Guardar en Supabase
+        actualizar_lead(
+            lead["id"],
+            auditoria=json.dumps(a, ensure_ascii=False),
+            pain_points=dolores,
+            estado="auditado",
+            fecha_analisis=ahora(),
+        )
+
+        print(
+            f"[{i}/{len(pendientes_sin_web)}] {lead['nombre_negocio'][:38]:38} "
+            f"Google:{lead.get('calificacion_google', '?')}★ "
+            f"{lead.get('resenas_google', 0)} reseñas -> {len(dolores)} pain points"
+        )
+        time.sleep(0.1)
 
     print("\nResumen:", stats())
 
 
 if __name__ == "__main__":
     main()
-
-
