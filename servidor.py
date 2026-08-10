@@ -158,8 +158,8 @@ def baja(token: str):
 # --------------------------------------------------------------------------
 
 @app.get("/informe/{lead_id}", response_class=HTMLResponse)
-def ver_informe(lead_id: str):
-    """Sirve el informe HTML de un lead directamente desde Python. Público."""
+def ver_informe(lead_id: str, preview: str = "0"):
+    """Sirve el informe HTML de un lead. ?preview=1 para ver sin contar apertura."""
     import json as _json
     import importlib
     import httpx
@@ -168,6 +168,7 @@ def ver_informe(lead_id: str):
     _headers = {
         "apikey": SUPABASE_SERVICE_KEY,
         "Authorization": f"Bearer {SUPABASE_SERVICE_KEY}",
+        "Content-Type": "application/json",
     }
     with httpx.Client(timeout=10) as c:
         r = c.get(
@@ -179,6 +180,26 @@ def ver_informe(lead_id: str):
         raise HTTPException(404, "Informe no encontrado")
 
     lead = r.json()[0]
+
+    # Tracking de apertura — solo si NO es preview
+    if preview != "1":
+        try:
+            veces  = (lead.get("veces_abierto_informe") or 0) + 1
+            campos = {
+                "veces_abierto_informe": veces,
+                "updated_at": ahora(),
+            }
+            if not lead.get("fecha_apertura_informe"):
+                campos["fecha_apertura_informe"] = ahora()
+            with httpx.Client(timeout=5) as c:
+                c.patch(
+                    f"{SUPABASE_URL}/rest/v1/crm_leads"
+                    f"?id=eq.{lead_id}&org_id=eq.{ORG_ID}",
+                    headers=_headers,
+                    json=campos,
+                )
+        except Exception:
+            pass
 
     # Extraer puntuacion_mobile del JSON de auditoría
     auditoria_raw = lead.get("auditoria") or "{}"
@@ -274,6 +295,19 @@ def api_enviado(
     if not ok:
         raise HTTPException(404, "Lead no encontrado")
     return {"ok": True, "id": lead_id}
+
+
+@app.post("/api/enviar/lote")
+def api_enviar_lote(x_api_key: str | None = Header(default=None)):
+    """Dispara el envío del lote diario de forma manual."""
+    verificar(x_api_key)
+    try:
+        import importlib
+        mod = importlib.import_module("7_enviar_lote")
+        enviados = mod.enviar_lote()
+        return {"ok": True, "enviados": enviados}
+    except Exception as e:
+        raise HTTPException(500, f"Error en envío: {e}")
 
 
 @app.post("/api/lead/{lead_id}/enviar")
