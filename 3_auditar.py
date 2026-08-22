@@ -38,16 +38,33 @@ CITAS_ONLINE = [
 ]
 
 
+def _url_valida(url: str):
+    """Valida y normaliza una URL. Devuelve None si es invalida."""
+    if not url or not url.strip():
+        return None
+    url = url.strip()
+    if url in ("/", "//", "#") or url.startswith("javascript:"):
+        return None
+    if not url.startswith(("http://", "https://")):
+        url = "https://" + url
+    from urllib.parse import urlparse
+    parsed = urlparse(url)
+    if not parsed.netloc or "." not in parsed.netloc:
+        return None
+    return url
+
+
 def auditar_web(url: str) -> dict:
     """Analiza la web del lead y devuelve un dict con los resultados."""
     a: dict = {"web_activa": False}
+    url_limpia = _url_valida(url)
+    if not url_limpia:
+        a["error"] = f"URL invalida: {url!r}"
+        return a
     try:
         inicio = time.monotonic()
         with httpx.Client(timeout=15, follow_redirects=True) as c:
-            r = c.get(
-                url if url.startswith("http") else "https://" + url,
-                headers={"User-Agent": UA}
-            )
+            r = c.get(url_limpia, headers={"User-Agent": UA})
         a["tiempo_carga_s"] = round(time.monotonic() - inicio, 2)
 
         if r.status_code != 200:
@@ -80,44 +97,88 @@ def auditar_web(url: str) -> dict:
     return a
 
 
-def obtener_pagespeed(url: str) -> dict:
-    """Llama a PageSpeed API y devuelve las métricas clave."""
+def obtener_pagespeed(url: str, reintentos: int = 2) -> dict:
+    """Llama a PageSpeed API y devuelve las métricas clave.
+    
+    Timeout ampliado a 90s (antes 60s — insuficiente para webs lentas).
+    Reintentos automáticos: si falla por timeout o error 500, reintenta
+    hasta 2 veces con 5s de espera entre intentos.
+    """
     if not PAGESPEED_API_KEY:
         return {}
-    try:
-        api_url = (
-            f"https://www.googleapis.com/pagespeedonline/v5/runPagespeed"
-            f"?url={url}&strategy=mobile&key={PAGESPEED_API_KEY}&category=performance&category=accessibility&category=best-practices&category=seo"
-        )
-        with httpx.Client(timeout=60) as c:
-            r = c.get(api_url)
-        if r.status_code != 200:
-            return {"error": f"PageSpeed HTTP {r.status_code}"}
 
-        data = r.json()
-        cats = data.get("lighthouseResult", {}).get("categories", {})
-        audits = data.get("lighthouseResult", {}).get("audits", {})
+    url_limpia = _url_valida(url)
+    if not url_limpia:
+        return {"error": f"URL invalida: {url!r}"}
+    url = url_limpia
 
-        return {
-            "puntuacion_mobile": round(
-                (cats.get("performance", {}).get("score", 0) or 0) * 100
-            ),
-            "accesibilidad": round(
-                (cats.get("accessibility", {}).get("score", 0) or 0) * 100
-            ),
-            "buenas_practicas": round(
-                (cats.get("best-practices", {}).get("score", 0) or 0) * 100
-            ),
-            "seo": round(
-                (cats.get("seo", {}).get("score", 0) or 0) * 100
-            ),
-            "lcp": audits.get("largest-contentful-paint", {}).get("displayValue", ""),
-            "fid": audits.get("total-blocking-time", {}).get("displayValue", ""),
-            "cls": audits.get("cumulative-layout-shift", {}).get("displayValue", ""),
-            "fcp": audits.get("first-contentful-paint", {}).get("displayValue", ""),
-        }
-    except Exception as e:
-        return {"error": str(e)[:100]}
+    api_url = (
+        f"https://www.googleapis.com/pagespeedonline/v5/runPagespeed"
+        f"?url={url}&strategy=mobile&key={PAGESPEED_API_KEY}"
+        f"&category=performance&category=accessibility&category=best-practices&category=seo"
+    )
+
+    for intento in range(1, reintentos + 2):
+        try:
+            with httpx.Client(timeout=90) as c:
+                r = c.get(api_url)
+
+            if r.status_code == 429:
+                print(f"  [PageSpeed] Rate limit — esperando 30s...")
+                time.sleep(30)
+                continue
+
+            if r.status_code >= 500:
+                print(f"  [PageSpeed] Error {r.status_code} intento {intento}/{reintentos+1} — reintentando...")
+                time.sleep(5)
+                continue
+
+            if r.status_code != 200:
+                return {"error": f"PageSpeed HTTP {r.status_code}"}
+
+            data = r.json()
+            cats   = data.get("lighthouseResult", {}).get("categories", {})
+            audits = data.get("lighthouseResult", {}).get("audits", {})
+
+            resultado = {
+                "puntuacion_mobile": round(
+                    (cats.get("performance", {}).get("score", 0) or 0) * 100
+                ),
+                "accesibilidad": round(
+                    (cats.get("accessibility", {}).get("score", 0) or 0) * 100
+                ),
+                "buenas_practicas": round(
+                    (cats.get("best-practices", {}).get("score", 0) or 0) * 100
+                ),
+                "seo": round(
+                    (cats.get("seo", {}).get("score", 0) or 0) * 100
+                ),
+                "lcp": audits.get("largest-contentful-paint", {}).get("displayValue", ""),
+                "fid": audits.get("total-blocking-time", {}).get("displayValue", ""),
+                "cls": audits.get("cumulative-layout-shift", {}).get("displayValue", ""),
+                "fcp": audits.get("first-contentful-paint", {}).get("displayValue", ""),
+            }
+
+            # Si todos los scores son 0, probablemente falló silenciosamente
+            scores = [resultado["puntuacion_mobile"], resultado["accesibilidad"],
+                      resultado["buenas_practicas"], resultado["seo"]]
+            if all(s == 0 for s in scores) and intento <= reintentos:
+                print(f"  [PageSpeed] Scores a 0 — reintentando ({intento}/{reintentos+1})...")
+                time.sleep(5)
+                continue
+
+            return resultado
+
+        except httpx.TimeoutException:
+            if intento <= reintentos:
+                print(f"  [PageSpeed] Timeout intento {intento}/{reintentos+1} — reintentando...")
+                time.sleep(5)
+            else:
+                return {"error": "timeout_tras_reintentos"}
+        except Exception as e:
+            return {"error": str(e)[:100]}
+
+    return {"error": "max_reintentos_alcanzados"}
 
 
 def detectar_pain_points(lead: dict, auditoria: dict,
@@ -310,3 +371,4 @@ def main(nicho: str | None = None):
 
 if __name__ == "__main__":
     main()
+
