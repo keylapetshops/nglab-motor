@@ -1,17 +1,17 @@
-﻿from __future__ import annotations
-"""NGLAB Motor â€” Paso 2: Extraer emails de las webs de los leads.
+from __future__ import annotations
+"""NGLAB Motor — Paso 2: Extraer emails de las webs de los leads.
 
 Estrategia (orden de prioridad):
-  1. Aviso legal / polÃ­tica de privacidad (obligatorio LSSI Art. 10)
-  2. PÃ¡gina de contacto
-  3. Portada (mailto:, texto plano, ofuscaciÃ³n Cloudflare)
+  1. Aviso legal / política de privacidad (obligatorio LSSI Art. 10)
+  2. Página de contacto
+  3. Portada (mailto:, texto plano, ofuscación Cloudflare)
 
-Solo se guardan buzones corporativos/genÃ©ricos cuando hay varios candidatos
-(info@, reservas@...) para minimizar tratamiento de datos de personas fÃ­sicas.
+Solo se guardan buzones corporativos/genéricos cuando hay varios candidatos
+(info@, reservas@...) para minimizar tratamiento de datos de personas físicas.
 
-Leads sin web â†’ estado 'sin_web' (cola de WhatsApp/llamada, nunca email)
-Leads con web sin email â†’ estado 'sin_email' (cola de WhatsApp/llamada)
-Leads con email â†’ estado 'con_email' (cola de email)
+Leads sin web → estado 'sin_web' (cola de llamada/WhatsApp, nunca email)
+Leads con web sin email → estado 'sin_email' (cola de llamada/WhatsApp)
+Leads con email → estado 'pendiente_revision' (cola de email)
 """
 import re
 import time
@@ -67,7 +67,7 @@ def extraer_de_html(html: str) -> set[str]:
         if email:
             encontrados.add(email)
 
-    # 2) OfuscaciÃ³n Cloudflare
+    # 2) Ofuscación Cloudflare
     for tag in soup.select("[data-cfemail]"):
         email = decodificar_cfemail(tag["data-cfemail"])
         if email:
@@ -81,7 +81,7 @@ def extraer_de_html(html: str) -> set[str]:
 
 
 def elegir_mejor(emails: set[str], dominio_web: str) -> str | None:
-    """Prioriza: prefijo genÃ©rico + dominio propio > genÃ©rico > dominio propio > resto."""
+    """Prioriza: prefijo genérico + dominio propio > genérico > dominio propio > resto."""
     if not emails:
         return None
 
@@ -122,14 +122,20 @@ def procesar_lead(lead: dict, cliente: httpx.Client) -> tuple[str | None, str | 
 
 
 def main():
-    # Marcar sin_web los que no tienen web â†’ cola WhatsApp/llamada
+    # ── FIX: Leads SIN web → estado 'sin_web' (cola llamada), NO descartado ──
+    # Antes se descartaban perdiendo leads con teléfono válido para llamar.
     sin_web = leads_por_estado("nuevo", con_web=False)
+    sin_web_marcados = 0
     for lead in sin_web:
         if not lead.get("web"):
-            actualizar_lead(lead["id"], estado="descartado")
+            actualizar_lead(lead["id"], estado="sin_web")
+            sin_web_marcados += 1
+    if sin_web_marcados:
+        print(f"Leads sin web → cola de llamada: {sin_web_marcados}")
 
+    # ── Leads CON web: extraer email ─────────────────────────────────────────
     pendientes = leads_por_estado("nuevo", con_web=True)
-    print(f"Leads con web pendientes de extracciÃ³n: {len(pendientes)}")
+    print(f"Leads con web pendientes de extracción: {len(pendientes)}")
 
     con_email = 0
     sin_email = 0
@@ -137,22 +143,23 @@ def main():
     with httpx.Client(timeout=15, follow_redirects=True) as cliente:
         for i, lead in enumerate(pendientes, 1):
             email, fuente = procesar_lead(lead, cliente)
+            nombre = lead.get("nombre_negocio", lead.get("nombre", ""))[:40]
             if email:
                 actualizar_lead(lead["id"],
                                 email=email,
-                                notas=f"Email extraÃ­do de: {fuente}",
+                                notas=f"Email extraído de: {fuente}",
                                 estado="pendiente_revision")
                 con_email += 1
-                print(f"[{i}/{len(pendientes)}] {lead['nombre_negocio'][:40]:40} -> {email}")
+                print(f"[{i}/{len(pendientes)}] {nombre:40} -> {email}")
             else:
-                actualizar_lead(lead["id"], estado="descartado")
+                # Sin email → cola de llamada, no descartado
+                actualizar_lead(lead["id"], estado="sin_email")
                 sin_email += 1
-                print(f"[{i}/{len(pendientes)}] {lead['nombre_negocio'][:40]:40} -> sin email")
+                print(f"[{i}/{len(pendientes)}] {nombre:40} -> sin email (cola llamada)")
 
-    print(f"\nEmails encontrados: {con_email} Â· Sin email: {sin_email}")
+    print(f"\nEmails encontrados: {con_email} · Sin email: {sin_email} · Sin web: {sin_web_marcados}")
     print("Resumen:", stats())
 
 
 if __name__ == "__main__":
     main()
-
