@@ -1,19 +1,15 @@
 from __future__ import annotations
 """NGLAB Motor — Paso 2: Extraer emails de las webs de los leads.
 
-MEJORAS v2:
-  - Más rutas candidatas (footer, sobre-nosotros, quienes-somos, team, etc.)
-  - Filtro avanzado de emails de empleados (prioriza genéricos siempre)
+MEJORAS v3:
+  - Rastreo inteligente de links internos (detecta URLs personalizadas de contacto)
+  - Búsqueda específica en footer HTML
+  - Fallback a Puppeteer scraper para webs con Captcha o JS pesado
+  - Filtro avanzado de emails de empleados
   - Lista negra ampliada de dominios temporales/desechables
-  - Extracción de teléfonos como fallback si no hay email
-  - Detección de patrones sospechosos (emails autogenerados, bots)
-  - Decodificación Cloudflare mejorada
-  - Cache de URLs visitadas para no repetir peticiones
-  - Timeout inteligente por ruta
-
-Leads sin web → estado 'sin_web' (cola llamada)
-Leads con web sin email → estado 'sin_email' (cola llamada, guardamos teléfono si encontramos)
-Leads con email → estado 'pendiente_revision'
+  - Extracción de teléfonos como fallback
+  - Cache de URLs visitadas
+  - Validación estricta de URLs
 """
 import re
 import time
@@ -25,7 +21,9 @@ from bs4 import BeautifulSoup
 from config import PREFIJOS_GENERICOS, DOMINIOS_BASURA, EXTENSIONES_FALSAS
 from db import leads_por_estado, actualizar_lead, stats
 
-# ── Rutas candidatas ampliadas ────────────────────────────────────────────────
+PUPPETEER_URL = "https://email-scraper-production-1308.up.railway.app"
+
+# ── Rutas candidatas base ─────────────────────────────────────────────────────
 RUTAS_CANDIDATAS = [
     "",
     "aviso-legal", "avisolegal", "aviso_legal", "legal", "aviso",
@@ -33,10 +31,19 @@ RUTAS_CANDIDATAS = [
     "privacy", "privacy-policy", "politica", "rgpd", "lopd",
     "contacto", "contact", "contactanos", "contacta", "contacte",
     "contact-us", "contacto.html", "contacto.php",
-    "sobre-nosotros", "sobre-nosotros.html", "quienes-somos",
-    "quien-somos", "about", "about-us", "equipo", "team",
-    "nosotros", "empresa",
+    "sobre-nosotros", "quienes-somos", "about", "about-us",
+    "equipo", "team", "nosotros", "empresa",
+    "donde-estamos", "ubicacion", "localizacion",
     "footer", "pie-de-pagina", "informacion", "info",
+]
+
+# Palabras clave para detectar links internos de contacto
+PALABRAS_CONTACTO = [
+    "contacto", "contact", "contactar", "contactanos",
+    "donde", "ubicacion", "localizacion", "llegar",
+    "about", "nosotros", "quienes", "equipo", "team",
+    "aviso", "legal", "privacidad", "privacy", "rgpd",
+    "info", "informacion", "atencion",
 ]
 
 REGEX_EMAIL = re.compile(
@@ -65,7 +72,6 @@ DOMINIOS_TEMPORALES = {
     "dispostable.com", "mailnull.com", "spamgourmet.com",
     "maildrop.cc", "discard.email", "fakeinbox.com",
     "tempr.email", "tempinbox.com", "spamfree24.org",
-    "mailexpire.com", "objectmail.com",
     "gmail.co", "gmail.con", "gmial.com", "gmai.com",
     "hotmail.co", "hotmail.con", "homail.com",
     "yahoo.co", "yaho.com", "yahooo.com",
@@ -85,6 +91,21 @@ PATRONES_SOSPECHOSOS = [
     re.compile(r"@domain\.", re.I),
     re.compile(r"\d{6,}@", re.I),
 ]
+
+
+def _url_valida(url: str) -> str | None:
+    """Valida y normaliza una URL. Devuelve None si es inválida."""
+    if not url or not url.strip():
+        return None
+    url = url.strip()
+    if url in ("/", "//", "#") or url.startswith("javascript:"):
+        return None
+    if not url.startswith(("http://", "https://")):
+        url = "https://" + url
+    parsed = urlparse(url)
+    if not parsed.netloc or "." not in parsed.netloc:
+        return None
+    return url
 
 
 def decodificar_cfemail(cf: str) -> str:
@@ -133,31 +154,83 @@ def es_email_empleado(email: str) -> bool:
 
 
 def extraer_de_html(html: str) -> set[str]:
+    """Extrae emails del HTML incluyendo footer y elementos ocultos."""
     encontrados: set[str] = set()
     soup = BeautifulSoup(html, "html.parser")
 
+    # 1) mailto: links
     for a in soup.select('a[href^="mailto:"]'):
         email = a["href"].removeprefix("mailto:").split("?")[0].strip()
         if email and es_email_valido(email):
             encontrados.add(email.lower())
 
+    # 2) Cloudflare ofuscado
     for tag in soup.select("[data-cfemail]"):
         email = decodificar_cfemail(tag["data-cfemail"])
         if email and es_email_valido(email):
             encontrados.add(email.lower())
 
+    # 3) Buscar específicamente en footer
+    footer = soup.find("footer")
+    if footer:
+        for e in REGEX_EMAIL.findall(footer.get_text(" ")):
+            e = e.strip(".,;:\"'()[]").lower()
+            if es_email_valido(e):
+                encontrados.add(e)
+
+    # 4) Texto completo de la página
     texto = soup.get_text(" ")
     for e in REGEX_EMAIL.findall(texto):
         e = e.strip(".,;:\"'()[]").lower()
         if es_email_valido(e):
             encontrados.add(e)
 
+    # 5) HTML crudo (emails en atributos, comentarios, etc.)
     for e in REGEX_EMAIL.findall(html):
         e = e.strip(".,;:\"'()[]").lower()
         if es_email_valido(e):
             encontrados.add(e)
 
     return encontrados
+
+
+def extraer_links_contacto(html: str, base_url: str, dominio_web: str) -> list[str]:
+    """
+    MEJORA: Extrae links internos que parezcan páginas de contacto.
+    Detecta URLs personalizadas como /contacto-dentista-castellon/
+    """
+    soup = BeautifulSoup(html, "html.parser")
+    links_contacto = []
+    vistos = set()
+
+    for a in soup.find_all("a", href=True):
+        href = a["href"].strip()
+        if not href or href.startswith(("#", "javascript:", "mailto:", "tel:")):
+            continue
+
+        # Solo links internos
+        if href.startswith("http"):
+            if dominio_web not in href:
+                continue
+            url_completa = href
+        else:
+            url_completa = urljoin(base_url, href)
+
+        if url_completa in vistos:
+            continue
+
+        # Verificar que contiene palabras clave de contacto
+        href_lower = href.lower()
+        texto_link = (a.get_text() or "").lower()
+
+        if any(palabra in href_lower or palabra in texto_link
+               for palabra in PALABRAS_CONTACTO):
+            url_limpia = _url_valida(url_completa)
+            if url_limpia:
+                links_contacto.append(url_limpia)
+                vistos.add(url_completa)
+
+    return links_contacto[:10]  # máximo 10 links adicionales
 
 
 def extraer_telefonos(html: str) -> list[str]:
@@ -205,6 +278,28 @@ def elegir_mejor(emails: set[str], dominio_web: str) -> str | None:
     return sorted(emails, key=puntuar)[0]
 
 
+def intentar_puppeteer(url: str) -> set[str]:
+    """
+    Fallback: usa el scraper Puppeteer para webs con JS pesado o Captcha.
+    """
+    try:
+        with httpx.Client(timeout=30) as c:
+            r = c.post(
+                f"{PUPPETEER_URL}/scrape",
+                json={"url": url},
+            )
+            if r.status_code == 200:
+                data = r.json()
+                emails = set()
+                for e in data.get("emails", []):
+                    if es_email_valido(e):
+                        emails.add(e.lower())
+                return emails
+    except Exception:
+        pass
+    return set()
+
+
 def procesar_lead(lead: dict, cliente: httpx.Client) -> tuple[str | None, str | None, list[str]]:
     base = lead.get("web", "")
     if not base or not base.strip():
@@ -212,17 +307,13 @@ def procesar_lead(lead: dict, cliente: httpx.Client) -> tuple[str | None, str | 
 
     base = base.strip()
 
-    # FIX: descartar URLs inválidas que causan crash (solo "/", "//", rutas relativas)
+    # Validar URL
     if base in ("/", "//", "#") or base.startswith("javascript:"):
         return None, None, []
-
-    # Añadir esquema si falta
     if not base.startswith(("http://", "https://")):
         base = "https://" + base
 
     parsed = urlparse(base)
-
-    # Verificar que tiene dominio real con punto
     if not parsed.netloc or "." not in parsed.netloc:
         return None, None, []
 
@@ -232,7 +323,10 @@ def procesar_lead(lead: dict, cliente: httpx.Client) -> tuple[str | None, str | 
     todos_telefonos: list[str] = []
     mejor_fuente:    str | None = None
     rutas_visitadas: set[str]  = set()
+    links_extra:     list[str] = []
+    html_home:       str | None = None
 
+    # ── Paso 1: Rutas candidatas base ────────────────────────────────────────
     for ruta in RUTAS_CANDIDATAS:
         url = urljoin(base if base.endswith("/") else base + "/", ruta)
         if url in rutas_visitadas:
@@ -246,13 +340,18 @@ def procesar_lead(lead: dict, cliente: httpx.Client) -> tuple[str | None, str | 
             if "text/html" not in r.headers.get("content-type", ""):
                 continue
 
+            # Guardar HTML de la home para extraer links
+            if ruta == "" and html_home is None:
+                html_home = r.text
+                links_extra = extraer_links_contacto(r.text, base, dominio_web)
+
             emails_pagina = extraer_de_html(r.text)
             todos_emails.update(emails_pagina)
 
             if not todos_telefonos:
                 todos_telefonos = extraer_telefonos(r.text)
 
-            # Si ya tenemos email genérico del dominio propio, paramos
+            # Si tenemos email genérico del dominio propio, paramos
             mejor = elegir_mejor(todos_emails, dominio_web)
             if mejor and not es_email_empleado(mejor):
                 local = mejor.split("@")[0].lower()
@@ -265,6 +364,43 @@ def procesar_lead(lead: dict, cliente: httpx.Client) -> tuple[str | None, str | 
             continue
 
         time.sleep(0.2)
+
+    # ── Paso 2: Links internos de contacto detectados en la home ─────────────
+    if not elegir_mejor(todos_emails, dominio_web) or es_email_empleado(elegir_mejor(todos_emails, dominio_web) or ""):
+        for url in links_extra:
+            if url in rutas_visitadas:
+                continue
+            rutas_visitadas.add(url)
+
+            try:
+                r = cliente.get(url, headers={"User-Agent": UA}, timeout=10)
+                if r.status_code != 200:
+                    continue
+                if "text/html" not in r.headers.get("content-type", ""):
+                    continue
+
+                emails_pagina = extraer_de_html(r.text)
+                todos_emails.update(emails_pagina)
+
+                if not todos_telefonos:
+                    todos_telefonos = extraer_telefonos(r.text)
+
+                mejor = elegir_mejor(todos_emails, dominio_web)
+                if mejor and not es_email_empleado(mejor):
+                    mejor_fuente = str(r.url)
+                    break
+
+            except (httpx.HTTPError, httpx.TimeoutException):
+                continue
+
+            time.sleep(0.2)
+
+    # ── Paso 3: Fallback Puppeteer si aún no tenemos email ───────────────────
+    if not elegir_mejor(todos_emails, dominio_web):
+        emails_puppeteer = intentar_puppeteer(base)
+        todos_emails.update(emails_puppeteer)
+        if emails_puppeteer:
+            mejor_fuente = f"{base} (puppeteer)"
 
     mejor_email = elegir_mejor(todos_emails, dominio_web)
     if mejor_email and not mejor_fuente:
