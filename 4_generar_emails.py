@@ -151,94 +151,154 @@ Si no deseas recibir más emails: {url_baja}
     else:
         intro_html = f"He buscado <strong>{nombre}</strong> online {rating_badge} y hay tres cosas que creo que os interesan saber:"
 
+    # Pain points cortos para la versión visual
+    p0_titulo = "Sin visibilidad online" if not tiene_web else ("Reputación sin conversión" if rating else "Web sin posicionamiento")
+    p1_titulo = "Clientes perdidos fuera de horario" if necesita_citas and not tiene_citas_web else ("Sin WhatsApp visible" if not tiene_whatsapp else "Baja visibilidad local")
+    p2_titulo = "No aparecéis en ChatGPT ni en IA"
+
     cuerpo_html = f"""<!DOCTYPE html>
 <html lang="es">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
 </head>
-<body style="margin:0;padding:0;background:#f4f4f4;font-family:system-ui,-apple-system,sans-serif">
+<body style="margin:0;padding:0;background:#f0f0f0;font-family:system-ui,-apple-system,sans-serif">
   <table width="100%" cellpadding="0" cellspacing="0">
     <tr><td align="center" style="padding:24px 16px">
       <table width="560" cellpadding="0" cellspacing="0"
-             style="background:#fff;border-radius:8px;overflow:hidden;max-width:560px;box-shadow:0 2px 8px rgba(0,0,0,0.08)">
+             style="background:#fff;border-radius:10px;overflow:hidden;max-width:560px">
 
-        <!-- Header -->
+        <!-- Header oscuro con nombre del negocio -->
         <tr>
-          <td style="background:#14141A;padding:20px 32px">
-            <span style="color:#C8FF00;font-size:20px;font-weight:800;letter-spacing:2px">N&amp;G LAB</span>
-            <span style="color:#555;font-size:12px;margin-left:12px;letter-spacing:1px">DIGITAL AGENCY</span>
+          <td style="background:#14141A;padding:22px 28px">
+            <table width="100%" cellpadding="0" cellspacing="0">
+              <tr>
+                <td>
+                  <span style="color:#C8FF00;font-size:18px;font-weight:800;letter-spacing:2px">N&amp;G LAB</span>
+                  <span style="color:#555;font-size:11px;margin-left:10px;letter-spacing:1px">DIGITAL AGENCY</span>
+                </td>
+                <td align="right">
+                  <span style="background:#C8FF00;color:#14141A;font-size:10px;font-weight:700;padding:4px 10px;border-radius:20px;letter-spacing:0.5px">ANÁLISIS GRATUITO</span>
+                </td>
+              </tr>
+              <tr>
+                <td colspan="2" style="padding-top:14px">
+                  <p style="margin:0;color:#fff;font-size:16px;font-weight:700;line-height:1.4">{nombre},<br>
+                  <span style="color:#aaa;font-weight:400;font-size:14px">hemos analizado vuestra presencia digital</span></p>
+                </td>
+              </tr>
+            </table>
           </td>
         </tr>
 
+        <!-- Rating destacado si existe -->
+        {f'''<tr>
+          <td style="background:#F0FFF4;padding:14px 28px;border-bottom:1px solid #d1fae5">
+            <table width="100%" cellpadding="0" cellspacing="0">
+              <tr>
+                <td width="60" style="text-align:center">
+                  <div style="font-size:26px;font-weight:700;color:#059669;line-height:1">{rating}</div>
+                  <div style="font-size:10px;color:#065f46">en Google</div>
+                </td>
+                <td width="1" style="background:#d1fae5;padding:0 12px"><div style="width:1px;height:36px;background:#d1fae5"></div></td>
+                <td width="60" style="text-align:center;padding:0 12px">
+                  <div style="font-size:26px;font-weight:700;color:#059669;line-height:1">{resenas}</div>
+                  <div style="font-size:10px;color:#065f46">reseñas</div>
+                </td>
+                <td width="1" style="padding:0 4px"><div style="width:1px;height:36px;background:#d1fae5"></div></td>
+                <td style="padding-left:14px">
+                  <p style="margin:0;font-size:12px;color:#065f46;line-height:1.5">Tenéis buena reputación — pero hay 3 problemas que os están costando clientes cada día</p>
+                </td>
+              </tr>
+            </table>
+          </td>
+        </tr>''' if rating and resenas else ''}
+
         <!-- Body -->
         <tr>
-          <td style="padding:32px">
-            <p style="margin:0 0 16px;color:#1a1a1a;font-size:15px">Hola,</p>
+          <td style="padding:24px 28px">
 
-            <p style="margin:0 0 20px;color:#1a1a1a;font-size:14px;line-height:1.7">
-              Soy <strong>Jesica</strong>, de N&amp;G LAB Digital. Me dedico a ayudar a negocios locales como <strong>{nombre}</strong> a conseguir más clientes a través de internet.
+            <p style="margin:0 0 6px;color:#999;font-size:11px;font-weight:600;letter-spacing:1px">HOLA,</p>
+            <p style="margin:0 0 18px;color:#1a1a1a;font-size:14px;line-height:1.7">
+              Soy <strong>Jesica</strong> de N&amp;G LAB Digital. Analizamos la presencia digital de negocios locales y encontramos oportunidades concretas de mejora. Esto es lo que vimos en vuestro caso:
             </p>
 
-            <p style="margin:0 0 20px;color:#1a1a1a;font-size:14px;line-height:1.7">{intro_html}</p>
-
-            <!-- Pain points -->
-            <table width="100%" cellpadding="0" cellspacing="0"
-                   style="margin:0 0 24px;border-radius:6px;overflow:hidden;border:1px solid #f0f0f0">
+            <!-- Pain point 1 -->
+            <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:10px">
               <tr>
-                <td style="padding:14px 18px;color:#333;font-size:13px;line-height:1.6;border-left:3px solid #C8FF00;background:#fafafa">
-                  <strong style="color:#C8FF00">→</strong>&nbsp; {puntos[0]}
+                <td width="38" valign="top">
+                  <div style="width:32px;height:32px;background:#14141A;border-radius:50%;text-align:center;line-height:32px;font-size:14px;font-weight:700;color:#C8FF00">1</div>
                 </td>
-              </tr>
-              <tr>
-                <td style="padding:14px 18px;color:#333;font-size:13px;line-height:1.6;border-left:3px solid #C8FF00;border-top:1px solid #f0f0f0;background:#fafafa">
-                  <strong style="color:#C8FF00">→</strong>&nbsp; {puntos[1]}
-                </td>
-              </tr>
-              <tr>
-                <td style="padding:14px 18px;color:#333;font-size:13px;line-height:1.6;border-left:3px solid #C8FF00;border-top:1px solid #f0f0f0;background:#fafafa">
-                  <strong style="color:#C8FF00">→</strong>&nbsp; {puntos[2]}
+                <td style="padding-left:12px;background:#fafafa;border-radius:8px;padding:12px 14px 12px 14px;border:1px solid #f0f0f0">
+                  <p style="margin:0 0 4px;font-size:13px;font-weight:700;color:#1a1a1a">{p0_titulo}</p>
+                  <p style="margin:0;font-size:12px;color:#555;line-height:1.5">{puntos[0]}</p>
                 </td>
               </tr>
             </table>
 
-            <p style="margin:0 0 20px;color:#1a1a1a;font-size:14px;line-height:1.7">
-              Si te viene bien hablar <strong>15 minutos esta semana</strong>,
-              escríbeme por WhatsApp y lo organizamos sin compromiso:
-            </p>
-
-            <p style="text-align:center;margin:0 0 28px">
-              <a href="{wa_url}"
-                 style="background:#25D366;color:#fff;padding:12px 28px;border-radius:6px;
-                        font-weight:700;font-size:14px;text-decoration:none;display:inline-block">
-                💬 Escribir por WhatsApp
-              </a>
-            </p>
-
-            <!-- Firma -->
-            <table cellpadding="0" cellspacing="0" style="border-top:1px solid #f0f0f0;padding-top:20px;margin-top:4px">
+            <!-- Pain point 2 -->
+            <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:10px">
               <tr>
-                <td style="padding-top:16px;color:#1a1a1a;font-size:13px;line-height:1.8">
-                  Un saludo,<br>
-                  <strong style="font-size:14px">Jesica Márquez</strong><br>
-                  <span style="color:#888">N&amp;G LAB Digital ·
+                <td width="38" valign="top">
+                  <div style="width:32px;height:32px;background:#14141A;border-radius:50%;text-align:center;line-height:32px;font-size:14px;font-weight:700;color:#C8FF00">2</div>
+                </td>
+                <td style="padding-left:12px;background:#fafafa;border-radius:8px;padding:12px 14px 12px 14px;border:1px solid #f0f0f0">
+                  <p style="margin:0 0 4px;font-size:13px;font-weight:700;color:#1a1a1a">{p1_titulo}</p>
+                  <p style="margin:0;font-size:12px;color:#555;line-height:1.5">{puntos[1]}</p>
+                </td>
+              </tr>
+            </table>
+
+            <!-- Pain point 3 — IA destacado en amarillo -->
+            <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:22px">
+              <tr>
+                <td width="38" valign="top">
+                  <div style="width:32px;height:32px;background:#F59E0B;border-radius:50%;text-align:center;line-height:32px;font-size:16px;font-weight:700;color:#fff">!</div>
+                </td>
+                <td style="padding-left:12px;background:#fffbeb;border-radius:8px;padding:12px 14px 12px 14px;border:1px solid #fde68a">
+                  <p style="margin:0 0 4px;font-size:13px;font-weight:700;color:#92400e">{p2_titulo}</p>
+                  <p style="margin:0;font-size:12px;color:#92400e;line-height:1.5">{puntos[2]}</p>
+                </td>
+              </tr>
+            </table>
+
+            <!-- CTA oscuro -->
+            <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:22px">
+              <tr>
+                <td style="background:#14141A;border-radius:8px;padding:18px 20px;text-align:center">
+                  <p style="margin:0 0 4px;color:#C8FF00;font-size:11px;font-weight:700;letter-spacing:1px">¿HABLAMOS 15 MINUTOS?</p>
+                  <p style="margin:0 0 14px;color:#888;font-size:11px">Sin compromiso · Esta semana · Por WhatsApp</p>
+                  <a href="{wa_url}" style="background:#25D366;color:#fff;padding:11px 28px;border-radius:6px;font-weight:700;font-size:14px;text-decoration:none;display:inline-block">
+                    💬 Escribir a Jesica
+                  </a>
+                </td>
+              </tr>
+            </table>
+
+            <!-- Firma con avatar -->
+            <table cellpadding="0" cellspacing="0" style="border-top:1px solid #f0f0f0;padding-top:16px;width:100%">
+              <tr>
+                <td width="46" valign="middle">
+                  <div style="width:40px;height:40px;border-radius:50%;background:#C8FF00;text-align:center;line-height:40px;font-weight:700;font-size:13px;color:#14141A">JM</div>
+                </td>
+                <td style="padding-left:12px;padding-top:16px">
+                  <p style="margin:0;font-size:13px;font-weight:700;color:#1a1a1a">Jesica Márquez</p>
+                  <p style="margin:0;font-size:12px;color:#888">N&amp;G LAB Digital ·
                     <a href="https://nglabdigital.com" style="color:#C8FF00;text-decoration:none">nglabdigital.com</a>
-                  </span>
+                  </p>
                 </td>
               </tr>
             </table>
+
           </td>
         </tr>
 
         <!-- Footer LSSI -->
         <tr>
-          <td style="background:#f9f9f9;padding:14px 32px;border-top:1px solid #eee;text-align:center">
+          <td style="background:#f9f9f9;padding:12px 28px;border-top:1px solid #eee;text-align:center">
             <p style="margin:0;font-size:11px;color:#aaa;line-height:1.6">
-              Has recibido este email porque tu negocio aparece en Google Maps.<br>
-              N&amp;G LAB Digital · nglabdigital.com<br>
-              <a href="{url_baja}" style="color:#aaa;text-decoration:underline">
-                No quiero recibir más emails
-              </a>
+              Has recibido este email porque tu negocio aparece en Google Maps. N&amp;G LAB Digital ·
+              <a href="{url_baja}" style="color:#aaa;text-decoration:underline">No quiero recibir más emails</a>
             </p>
           </td>
         </tr>
@@ -247,7 +307,7 @@ Si no deseas recibir más emails: {url_baja}
     </td></tr>
   </table>
 
-  <!-- Pixel tracking apertura email -->
+  <!-- Pixel tracking -->
   <img src="{url_pixel}" width="1" height="1" style="display:none" alt="">
 </body>
 </html>"""
