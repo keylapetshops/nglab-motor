@@ -1,149 +1,282 @@
 from __future__ import annotations
-import json, sys, time, httpx
-from config import ANTHROPIC_API_KEY, nicho_config
+"""NGLAB Motor — Paso 4: Generar emails por plantilla (sin API de Claude).
+
+Cada nicho tiene su propia plantilla personalizada.
+Se usan los datos reales del lead: nombre, ciudad, pain points, PageSpeed, rating.
+
+Sin coste de API. Sin dependencia externa.
+"""
+import sys
+import time
+from config import NICHOS, nicho_config
 from db import leads_por_estado, actualizar_lead, cargar_json
 
-MODELO    = "claude-sonnet-4-5"
-URL       = "https://api.anthropic.com/v1/messages"
 MOTOR_URL = "https://nglab-motor-production.up.railway.app"
 
-SYSTEM_PROMPT = """Eres el copywriter senior de N&G LAB Digital, una agencia de marketing y tecnología en Valencia. Escribes emails fríos B2B que suenan como si una persona real hubiera dedicado tiempo a estudiar ese negocio concreto.
 
-TU PERSONALIDAD AL ESCRIBIR:
-- Hablas como Jesica, la fundadora: cercana, directa, segura, sin arrogancia
-- Tuteas siempre, pero con respeto profesional
-- Nunca usas palabras técnicas que el dueño de un negocio local no entienda
-- No adulas. No dices "excelente negocio" ni "gran trabajo". Si algo es bueno, lo dices con datos concretos
-- Cada frase tiene un propósito. Si no aporta, la quitas
-- Generas curiosidad sin ser agresiva. Muestras el problema sin asustar
-
-REGLAS DE CALIDAD:
-- Usa los datos REALES del lead: puntuación exacta, número de reseñas, rating, ciudad, nombre del negocio
-- Los pain points no son genéricos: son específicos de lo que has encontrado en SU negocio
-- El asunto del email debe tener máximo 7 palabras y mencionar el nombre del negocio
-- No repitas la misma estructura en todos los emails: varía la entrada, el enfoque, el cierre
-- Escribe como si fuera UN email para UNA persona, no una plantilla para 200"""
+def _pain(dolores: list, idx: int, fallback: str = "") -> str:
+    """Extrae un pain point por índice de forma segura."""
+    if not dolores or idx >= len(dolores):
+        return fallback
+    p = dolores[idx]
+    if isinstance(p, dict):
+        p = p.get("label") or p.get("code") or str(p)
+    return str(p)[:150]
 
 
-def generar(lead: dict, nicho: str) -> dict | None:
-    cfg          = nicho_config(nicho)
-    nombre       = lead.get("nombre_negocio", "")
-    ciudad       = lead.get("ciudad", "")
-    web          = lead.get("web", "")
-    tiene_web    = bool(web and web.strip())
-    ps           = int(lead.get("pagespeed_mobile", 0) or 0)
-    dolores      = cargar_json(lead.get("pain_points")) or []
-    dolor1       = dolores[0] if len(dolores) > 0 else ""
-    dolor2       = dolores[1] if len(dolores) > 1 else ""
-    dolor3       = dolores[2] if len(dolores) > 2 else ""
-    # URL del informe — endpoint directo en Railway (sin Supabase Storage)
-    url_informe  = f"{MOTOR_URL}/informe/{lead.get('id')}"
-    rating       = lead.get("calificacion_google", "")
-    resenas      = lead.get("resenas_google", "")
-    sector_label = cfg.get("sector_label", "negocios")
+def generar_asunto(lead: dict, cfg: dict) -> str:
+    nombre  = lead.get("nombre_negocio", "tu negocio")
+    ciudad  = lead.get("ciudad", "")
+    sector  = cfg.get("sector_label", "negocio")
+    ps      = int(lead.get("pagespeed_mobile", 0) or 0)
+
+    if ps and ps < 50:
+        return f"{nombre}: tu web pierde clientes cada día"
+    elif ps and ps < 80:
+        return f"{nombre}, hay margen de mejora en tu web"
+    elif not lead.get("web"):
+        return f"{nombre}: tus competidores te están ganando online"
+    else:
+        return f"He analizado la web de {nombre}"
+
+
+def generar_email(lead: dict) -> dict | None:
+    """Genera asunto + cuerpo texto + cuerpo HTML para un lead."""
+    nicho   = lead.get("sector", "otro")
+    cfg     = NICHOS.get(nicho, NICHOS["otro"])
+    nombre  = lead.get("nombre_negocio", "")
+    ciudad  = lead.get("ciudad", "")
+    web     = lead.get("web", "")
+    tiene_web = bool(web and web.strip())
+    ps      = int(lead.get("pagespeed_mobile", 0) or 0)
+    rating  = lead.get("calificacion_google", "")
+    resenas = lead.get("resenas_google", 0) or 0
+    token   = lead.get("token_baja", "")
+    lead_id = lead.get("id", "")
+
+    dolores = cargar_json(lead.get("pain_points")) or []
+    dolor1  = _pain(dolores, 0, cfg["dolor"])
+    dolor2  = _pain(dolores, 1, "la web no está optimizada para móvil")
+    dolor3  = _pain(dolores, 2, "sin visibilidad en buscadores locales")
+
+    url_informe = f"{MOTOR_URL}/informe/{lead_id}"
+    url_baja    = f"{MOTOR_URL}/baja/{token}"
+    url_pixel   = f"{MOTOR_URL}/px/{token}.gif"
+    sector_label = cfg.get("sector_label", "negocio local")
+
+    asunto = generar_asunto(lead, cfg)
+
+    # ── CUERPO TEXTO PLANO ────────────────────────────────────────────────
+    if tiene_web:
+        ps_texto = f"velocidad móvil de {ps}/100" if ps else "velocidad móvil mejorable"
+        cuerpo_texto = f"""Hola,
+
+Soy Jesica, de N&G LAB Digital. Me dedico a ayudar a {sector_label}s como {nombre} a conseguir más clientes a través de internet.
+
+He analizado vuestra presencia digital y hay tres cosas que creo que os interesa saber:
+
+→ {dolor1}
+
+→ {dolor2}
+
+→ Cuando alguien le pregunta a ChatGPT o Google "mejor {sector_label} en {ciudad}", {nombre} no aparece — y vuestros competidores que trabajan el SEO sí aparecen cada vez más.
+
+He preparado un informe gratuito con el análisis completo de vuestro caso:
+{url_informe}
+
+Si te viene bien hablar 15 minutos esta semana, escríbeme por WhatsApp:
+https://wa.me/34673038773?text=Hola+Jesica,+he+visto+el+informe+de+{nombre.replace(' ', '+')}
+
+Un saludo,
+Jesica Márquez
+N&G LAB Digital · nglabdigital.com
+
+---
+Si no deseas recibir más emails: {url_baja}
+"""
+    else:
+        cuerpo_texto = f"""Hola,
+
+Soy Jesica, de N&G LAB Digital. Me dedico a ayudar a negocios locales como {nombre} a conseguir más clientes a través de internet.
+
+He buscado vuestra presencia online y hay tres cosas que creo que os interesa saber:
+
+→ {dolor1}
+
+→ Con {resenas} reseñas en Google{f' y un {rating}/5' if rating else ''}, tenéis base — pero sin web propia, los clientes que buscan en Google van a la competencia que sí aparece.
+
+→ Cuando alguien le pregunta a ChatGPT o Google "mejor {sector_label} en {ciudad}", {nombre} no aparece porque no tiene web. Esto va a ser cada vez más importante.
+
+Si te viene bien hablar 15 minutos esta semana sobre cómo mejorar esto, escríbeme por WhatsApp:
+https://wa.me/34673038773?text=Hola+Jesica,+me+interesa+saber+más+sobre+{nombre.replace(' ', '+')}
+
+Un saludo,
+Jesica Márquez
+N&G LAB Digital · nglabdigital.com
+
+---
+Si no deseas recibir más emails: {url_baja}
+"""
+
+    # ── CUERPO HTML ───────────────────────────────────────────────────────
+    ps_badge = ""
+    if tiene_web and ps:
+        color = "#EF4444" if ps < 50 else "#F59E0B" if ps < 80 else "#10B981"
+        ps_badge = f'<span style="background:{color};color:#fff;padding:2px 8px;border-radius:12px;font-size:12px;font-weight:700">{ps}/100 móvil</span>'
+
+    boton_informe = ""
+    if tiene_web:
+        boton_informe = f"""
+        <p style="text-align:center;margin:24px 0">
+          <a href="{url_informe}"
+             style="background:#C8FF00;color:#14141A;padding:12px 28px;border-radius:6px;
+                    font-weight:700;font-size:15px;text-decoration:none;display:inline-block">
+            Ver el análisis de {nombre}
+          </a>
+        </p>"""
 
     if tiene_web:
-        caso = f"""DATOS DEL NEGOCIO:
-- Nombre: {nombre}
-- Ciudad: {ciudad}
-- Sector: {nicho}
-- Web: {web}
-- PageSpeed móvil: {ps}/100
-- Rating Google: {rating}
-- Reseñas Google: {resenas}
-- Pain point 1: {dolor1}
-- Pain point 2: {dolor2}
-- Pain point 3: {dolor3}
-- URL del informe: {url_informe}
-
-TIPO: CON WEB
-Escribe el email usando los pain points reales de su web.
-
-Incluye SIEMPRE estos dos elementos:
-1. El botón "Ver el análisis de mi negocio" con el enlace al informe ({url_informe})
-2. Un punto específico sobre visibilidad en IA: cuando alguien le pregunta a ChatGPT, Gemini o Perplexity "mejor {sector_label} en {ciudad}", este negocio no aparece — y sus competidores que trabajan el SEO sí aparecen cada vez más.
-
-Cierra con opción de WhatsApp."""
-
+        intro = f"He analizado vuestra presencia digital {ps_badge} y hay tres cosas que creo que os interesa saber:"
     else:
-        caso = f"""DATOS DEL NEGOCIO:
-- Nombre: {nombre}
-- Ciudad: {ciudad}
-- Sector: {nicho}
-- Web: NO TIENE
-- Rating Google: {rating}
-- Reseñas Google: {resenas}
+        intro = f"He buscado vuestra presencia online y hay tres cosas que creo que os interesa saber:"
 
-TIPO: SIN WEB
-Este negocio no tiene página web. Los tres puntos deben girar en torno a:
-1. No tener web cuando su competencia sí la tiene — que está perdiendo clientes cada día
-2. Su perfil de Google Business: {resenas} reseñas con un {rating} — cómo se compara con quien sí tiene web
-3. La visibilidad en IA: cuando alguien le pregunta a ChatGPT, Gemini o Perplexity "mejor {sector_label} en {ciudad}", este negocio no aparece porque no tiene web — y esto va a ser cada vez más importante
+    cuerpo_html = f"""<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+</head>
+<body style="margin:0;padding:0;background:#f4f4f4;font-family:system-ui,sans-serif">
+  <table width="100%" cellpadding="0" cellspacing="0">
+    <tr><td align="center" style="padding:24px 16px">
+      <table width="560" cellpadding="0" cellspacing="0"
+             style="background:#fff;border-radius:8px;overflow:hidden;max-width:560px">
 
-NO incluyas enlace a informe. El CTA principal es WhatsApp."""
+        <!-- Header -->
+        <tr>
+          <td style="background:#14141A;padding:20px 32px">
+            <span style="color:#C8FF00;font-size:20px;font-weight:800;letter-spacing:2px">N&amp;G LAB</span>
+            <span style="color:#666;font-size:12px;margin-left:12px">Digital Agency</span>
+          </td>
+        </tr>
 
-    prompt = f"""{caso}
+        <!-- Body -->
+        <tr>
+          <td style="padding:32px">
+            <p style="margin:0 0 16px;color:#1a1a1a">Hola,</p>
 
-ESTRUCTURA DEL EMAIL:
-1. "Hola," (siempre)
-2. Presentación corta de Jesica y N&G LAB — por qué les escribes, qué has hecho (NO uses la frase "llevamos semanas analizando" en todos, varía)
-3. Una frase destacada con el nombre del negocio
-4. "He mirado vuestro caso y hay tres cosas que creo que os interesa saber:" (o variación natural)
-5. Tres puntos con flecha (→) usando los datos REALES — que suenen a que alguien ha dedicado tiempo a mirar SU caso, no una plantilla
-6. Cierre con CTA según el tipo (con o sin web)
-7. Opción de WhatsApp
-8. Firma: Jesica Marquez / N&G LAB Digital / nglabdigital.com
+            <p style="margin:0 0 20px;color:#1a1a1a;line-height:1.6">
+              Soy <strong>Jesica</strong>, de N&amp;G LAB Digital. Me dedico a ayudar a
+              <strong>{sector_label}s</strong> como <strong>{nombre}</strong>
+              a conseguir más clientes a través de internet.
+            </p>
 
-FORMATO DE RESPUESTA — JSON puro, sin markdown:
-{{"asunto": "maximo 7 palabras con nombre del negocio", "cuerpo_texto": "version texto plano del email", "cuerpo_html": "version HTML del email usando <br> para saltos de linea, <strong> para negritas, <p> para parrafos"}}
+            <p style="margin:0 0 20px;color:#1a1a1a;line-height:1.6">{intro}</p>
 
-El cuerpo_html debe incluir las flechas → para los puntos. No uses saltos de linea reales dentro de los valores JSON. Maximo 200 palabras el cuerpo. Responde SOLO el JSON."""
+            <!-- Pain points -->
+            <table width="100%" cellpadding="0" cellspacing="0"
+                   style="margin:0 0 20px;border-left:3px solid #C8FF00">
+              <tr><td style="padding:10px 16px;color:#333;line-height:1.5;font-size:14px">
+                <strong>→</strong> {dolor1}
+              </td></tr>
+              <tr><td style="padding:10px 16px;color:#333;line-height:1.5;font-size:14px;border-top:1px solid #f0f0f0">
+                <strong>→</strong> {dolor2}
+              </td></tr>
+              <tr><td style="padding:10px 16px;color:#333;line-height:1.5;font-size:14px;border-top:1px solid #f0f0f0">
+                <strong>→</strong> Cuando alguien le pregunta a <strong>ChatGPT o Google</strong>
+                "mejor {sector_label} en {ciudad}", <strong>{nombre} no aparece</strong> —
+                y vuestros competidores que trabajan el SEO sí aparecen cada vez más.
+              </td></tr>
+            </table>
 
-    headers = {
-        "x-api-key": ANTHROPIC_API_KEY,
-        "anthropic-version": "2023-06-01",
-        "content-type": "application/json",
+            {boton_informe}
+
+            <p style="margin:20px 0;color:#1a1a1a;line-height:1.6">
+              Si te viene bien hablar <strong>15 minutos esta semana</strong>,
+              escríbeme por WhatsApp y lo organizamos sin compromiso:
+            </p>
+
+            <p style="text-align:center;margin:0 0 28px">
+              <a href="https://wa.me/34673038773?text=Hola+Jesica,+he+visto+tu+email+sobre+{nombre.replace(' ', '+')}"
+                 style="background:#25D366;color:#fff;padding:10px 24px;border-radius:6px;
+                        font-weight:700;font-size:14px;text-decoration:none;display:inline-block">
+                Escribir por WhatsApp
+              </a>
+            </p>
+
+            <!-- Firma -->
+            <p style="margin:0;color:#1a1a1a;line-height:1.6;border-top:1px solid #f0f0f0;padding-top:20px">
+              Un saludo,<br>
+              <strong>Jesica Márquez</strong><br>
+              <span style="color:#666;font-size:13px">N&amp;G LAB Digital ·
+                <a href="https://nglabdigital.com" style="color:#C8FF00">nglabdigital.com</a>
+              </span>
+            </p>
+          </td>
+        </tr>
+
+        <!-- Footer LSSI -->
+        <tr>
+          <td style="background:#f9f9f9;padding:16px 32px;border-top:1px solid #eee;text-align:center">
+            <p style="margin:0;font-size:11px;color:#999;line-height:1.6">
+              Has recibido este email porque tu negocio aparece en Google Maps.<br>
+              <a href="{url_baja}" style="color:#999;text-decoration:underline">
+                No quiero recibir más emails
+              </a>
+            </p>
+          </td>
+        </tr>
+
+      </table>
+    </td></tr>
+  </table>
+
+  <!-- Pixel tracking -->
+  <img src="{url_pixel}" width="1" height="1" style="display:none" alt="">
+</body>
+</html>"""
+
+    return {
+        "asunto": asunto,
+        "cuerpo_texto": cuerpo_texto,
+        "cuerpo_html": cuerpo_html,
     }
-    body = {
-        "model": MODELO,
-        "max_tokens": 2000,
-        "system": SYSTEM_PROMPT,
-        "messages": [{"role": "user", "content": prompt}],
-    }
-    try:
-        r = httpx.post(URL, headers=headers, json=body, timeout=60)
-        t = r.json()["content"][0]["text"].strip().replace("```json","").replace("```","").strip()
-        return json.loads(t)
-    except Exception as e:
-        print(f"Error: {e}")
-        return None
 
 
 def main(nicho=None):
     leads = leads_por_estado("auditado", nicho=nicho)
-    print(f"[EMAIL] {len(leads)} leads")
+    print(f"[EMAIL] {len(leads)} leads para generar email")
+
+    ok = 0
+    error = 0
+
     for lead in leads:
         lid    = lead.get("id")
         nombre = lead.get("nombre_negocio", "")
-        token  = lead.get("token_baja", "")
-        n      = nicho or lead.get("sector", "general")
-        r      = generar(lead, n)
+        n      = nicho or lead.get("sector", "otro")
+
+        # Aseguramos que el nicho existe, si no usamos "otro"
+        if n not in NICHOS:
+            n = "otro"
+
+        r = generar_email(lead)
         if r:
-            html       = r.get("cuerpo_html", "")
-            pixel      = f'<img src="{MOTOR_URL}/px/{token}.gif" width="1" height="1" style="display:none">'
-            baja       = f'<p style="text-align:center;margin-top:30px;padding-top:20px;border-top:1px solid #2a2a35;"><a href="{MOTOR_URL}/baja/{token}" style="color:#666;font-size:11px;text-decoration:underline;">No quiero recibir más emails</a></p>'
-            html_final = html + baja + pixel
             actualizar_lead(
                 lid,
-                email_asunto=r.get("asunto"),
-                email_cuerpo=r.get("cuerpo_texto"),
-                email_html=html_final,
+                email_asunto=r["asunto"],
+                email_cuerpo=r["cuerpo_texto"],
+                email_html=r["cuerpo_html"],
                 estado="listo_para_enviar",
             )
-            print(f"  OK {nombre}")
+            ok += 1
+            print(f"  OK  {nombre[:50]}")
         else:
-            print(f"  ERROR {nombre}")
-        time.sleep(1)
+            error += 1
+            print(f"  ERR {nombre[:50]}")
+
+        time.sleep(0.1)  # sin API que esperar, solo pausa de cortesía
+
+    print(f"[EMAIL] {ok} generados · {error} errores")
 
 
 if __name__ == "__main__":
