@@ -153,8 +153,32 @@ def es_email_empleado(email: str) -> bool:
     return False
 
 
+def desofuscar_email(texto: str) -> list[str]:
+    """Detecta emails escritos de forma ofuscada.
+    
+    Detecta formatos como:
+    - info [at] dominio [dot] com
+    - info(arroba)dominio.es  
+    - info AT dominio DOT com
+    - info @ dominio . com (con espacios)
+    """
+    emails = []
+    # Normalizar texto
+    t = texto.lower()
+    # Reemplazar variantes de @ 
+    t = re.sub(r'\s*\[at\]\s*|\s*\(at\)\s*|\s+at\s+|\s*\[arroba\]\s*|\s*\(arroba\)\s*|\s+arroba\s+', '@', t)
+    # Reemplazar variantes de .
+    t = re.sub(r'\s*\[dot\]\s*|\s*\(dot\)\s*|\s+dot\s+|\s*\[punto\]\s*|\s*\(punto\)\s*|\s+punto\s+', '.', t)
+    # Ahora buscar emails normales en el texto normalizado
+    for e in REGEX_EMAIL.findall(t):
+        e = e.strip(".,;:\"'()[]").lower().replace(" ", "")
+        if es_email_valido(e):
+            emails.append(e)
+    return emails
+
+
 def extraer_de_html(html: str) -> set[str]:
-    """Extrae emails del HTML incluyendo footer y elementos ocultos."""
+    """Extrae emails del HTML incluyendo footer, ofuscados y elementos ocultos."""
     encontrados: set[str] = set()
     soup = BeautifulSoup(html, "html.parser")
 
@@ -173,10 +197,13 @@ def extraer_de_html(html: str) -> set[str]:
     # 3) Buscar específicamente en footer
     footer = soup.find("footer")
     if footer:
-        for e in REGEX_EMAIL.findall(footer.get_text(" ")):
+        texto_footer = footer.get_text(" ")
+        for e in REGEX_EMAIL.findall(texto_footer):
             e = e.strip(".,;:\"'()[]").lower()
             if es_email_valido(e):
                 encontrados.add(e)
+        for e in desofuscar_email(texto_footer):
+            encontrados.add(e)
 
     # 4) Texto completo de la página
     texto = soup.get_text(" ")
@@ -185,7 +212,11 @@ def extraer_de_html(html: str) -> set[str]:
         if es_email_valido(e):
             encontrados.add(e)
 
-    # 5) HTML crudo (emails en atributos, comentarios, etc.)
+    # 5) Emails ofuscados en texto (info[at]dominio[dot]com, info arroba dominio punto es)
+    for e in desofuscar_email(texto):
+        encontrados.add(e)
+
+    # 6) HTML crudo (emails en atributos, comentarios, JS variables)
     for e in REGEX_EMAIL.findall(html):
         e = e.strip(".,;:\"'()[]").lower()
         if es_email_valido(e):
