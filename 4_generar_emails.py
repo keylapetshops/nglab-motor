@@ -118,7 +118,7 @@ def generar_email(lead: dict) -> dict | None:
 
     cuerpo_texto = f"""Hola,
 
-Soy Jesica, de N&G LAB Digital. Me dedico a ayudar a {sector_label}s como {nombre} a conseguir más clientes a través de internet.
+Soy Jesica, de N&G LAB Digital. Me dedico a ayudar a negocios como {nombre} a conseguir más clientes a través de internet.
 
 {intro_texto}
 
@@ -177,9 +177,7 @@ Si no deseas recibir más emails: {url_baja}
             <p style="margin:0 0 16px;color:#1a1a1a;font-size:15px">Hola,</p>
 
             <p style="margin:0 0 20px;color:#1a1a1a;font-size:14px;line-height:1.7">
-              Soy <strong>Jesica</strong>, de N&amp;G LAB Digital. Me dedico a ayudar a
-              <strong>{sector_label}s</strong> como <strong>{nombre}</strong>
-              a conseguir más clientes a través de internet.
+              Soy <strong>Jesica</strong>, de N&amp;G LAB Digital. Me dedico a ayudar a negocios locales como <strong>{nombre}</strong> a conseguir más clientes a través de internet.
             </p>
 
             <p style="margin:0 0 20px;color:#1a1a1a;font-size:14px;line-height:1.7">{intro_html}</p>
