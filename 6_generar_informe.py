@@ -78,10 +78,10 @@ def generar_html(lead: dict) -> str:
     cls_val     = ps.get("cls", "N/A")
     fid         = ps.get("fid", "N/A")
 
-    # Accesibilidad, buenas prácticas, SEO — si no hay datos mostramos N/A
-    accesib   = auditoria_raw.get("accesibilidad") or None
-    buenas    = auditoria_raw.get("buenas_practicas") or None
-    seo_score = auditoria_raw.get("seo") or None
+    # Accesibilidad, buenas prácticas, SEO — están dentro de pagespeed, no en auditoria_raw
+    accesib   = ps.get("accesibilidad") or auditoria_raw.get("accesibilidad") or None
+    buenas    = ps.get("buenas_practicas") or auditoria_raw.get("buenas_practicas") or None
+    seo_score = ps.get("seo") or auditoria_raw.get("seo") or None
 
     # Pain points HTML
     pp_html = ""
