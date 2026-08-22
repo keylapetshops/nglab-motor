@@ -297,6 +297,34 @@ def api_enviado(
     return {"ok": True, "id": lead_id}
 
 
+@app.post("/api/auditar")
+def api_auditar(
+    tareas: BackgroundTasks,
+    x_api_key: str | None = Header(default=None),
+):
+    """Lanza solo el paso 3 (auditoría + PageSpeed) sobre leads pendiente_revision."""
+    verificar(x_api_key)
+    def _run():
+        import importlib
+        importlib.import_module("3_auditar").main()
+    tareas.add_task(_run)
+    return {"ok": True, "mensaje": "Auditoría lanzada en segundo plano"}
+
+
+@app.post("/api/generar")
+def api_generar(
+    tareas: BackgroundTasks,
+    x_api_key: str | None = Header(default=None),
+):
+    """Lanza solo el paso 4 (generar emails con plantilla) sobre leads auditados."""
+    verificar(x_api_key)
+    def _run():
+        import importlib
+        importlib.import_module("4_generar_emails").main()
+    tareas.add_task(_run)
+    return {"ok": True, "mensaje": "Generación de emails lanzada en segundo plano"}
+
+
 @app.post("/api/enviar/lote")
 def api_enviar_lote(x_api_key: str | None = Header(default=None)):
     """Dispara el envío del lote diario de forma manual."""
