@@ -244,49 +244,49 @@ NICHOS: dict[str, dict] = {
         "nombre": "Clínicas dentales",
         "sector_label": "clínica dental",
         "queries": ["clínica dental en {m}, {p}", "dentista en {m}, {p}", "ortodoncia implantes {m}"],
-        "dolor": "los pacientes buscan dentista en Google antes de llamar: si la web es lenta o no aparece bien posicionada, van a la clínica de al lado",
+        "dolor": "El 23% de las citas dentales se quedan vacías por ausencias sin avisar. Sus competidores con recordatorio automático por WhatsApp recuperan hasta 180€ por hueco.",
     },
     "clinica_medica": {
         "nombre": "Clínicas y centros médicos",
         "sector_label": "clínica médica",
         "queries": ["clínica médica en {m}, {p}", "médico privado {m}", "centro médico {m}, {p}"],
-        "dolor": "los pacientes buscan especialista en Google: web lenta o sin visibilidad significa citas que van a otra clínica",
+        "dolor": "Recepción dedica 3 horas diarias a confirmar citas por teléfono. La automatización de recordatorios reduce ausencias un 50% y libera al personal.",
     },
     "fisioterapia": {
         "nombre": "Fisioterapia y osteopatía",
         "sector_label": "fisioterapeuta",
         "queries": ["fisioterapia en {m}, {p}", "fisioterapeuta {m}", "osteopatía {m}, {p}"],
-        "dolor": "los pacientes buscan fisio en Google: sin presencia digital van al que aparece primero",
+        "dolor": "Un 10% de ausencias no cobradas supone más de 5.000€/año en pérdidas. Cada ausente en fisio cuesta entre 30€ y 50€ por hueco vacío.",
     },
     "psicologia": {
         "nombre": "Psicólogos y terapeutas",
         "sector_label": "psicólogo",
         "queries": ["psicólogo en {m}, {p}", "terapeuta psicología {m}", "psicología clínica {m}"],
-        "dolor": "los pacientes buscan psicólogo con discreción online: sin web profesional pierden esa confianza inicial",
+        "dolor": "El 30% de los pacientes busca terapia fuera del horario comercial por privacidad. Sin reserva online al instante esos pacientes se van a otra consulta.",
     },
     "nutricion": {
         "nombre": "Nutricionistas y dietistas",
         "sector_label": "nutricionista",
         "queries": ["nutricionista en {m}, {p}", "dietista {m}", "consulta nutrición {m}"],
-        "dolor": "los clientes comparan nutricionistas online antes de elegir: sin visibilidad digital pierden esos contactos",
+        "dolor": "La gestión manual de revisiones provoca un 40% de abandono del tratamiento. Sin agenda automatizada pierden clientes antes de que vean resultados.",
     },
     "veterinaria": {
         "nombre": "Clínicas veterinarias",
         "sector_label": "veterinario",
         "queries": ["clínica veterinaria en {m}, {p}", "veterinario {m}", "hospital veterinario {m}"],
-        "dolor": "los dueños buscan veterinario en urgencias desde el móvil: sin visibilidad online pierden esos clientes",
+        "dolor": "El 88% de los dueños busca veterinario en Google Maps y contacta en 24 horas. Sin cita online inmediata pierde las revisiones anuales.",
     },
     "optica": {
         "nombre": "Ópticas y centros auditivos",
         "sector_label": "óptica",
         "queries": ["óptica en {m}, {p}", "centro auditivo {m}", "gafas lentillas {m}"],
-        "dolor": "los clientes buscan óptica en Google antes de entrar: sin presencia digital pierden visitas",
+        "dolor": "Sin recordatorio automático de revisión anual se pierde el 35% de clientes. Sin sistema automático olvidan volver y se gradúan en la competencia.",
     },
     "farmacia": {
         "nombre": "Farmacias",
         "sector_label": "farmacia",
         "queries": ["farmacia en {m}, {p}", "parafarmacia {m}", "farmacia online {m}"],
-        "dolor": "sin web ni presencia digital, los clientes van a la farmacia que aparece en Google Maps",
+        "dolor": "Solo el 31,6% de pymes vende online. El margen real está en dermoestética pero sin presencia digital esos clientes van a otra farmacia.",
     },
 
     # ── Estética y bienestar ────────────────────────────────────────────
@@ -294,31 +294,31 @@ NICHOS: dict[str, dict] = {
         "nombre": "Centros de estética",
         "sector_label": "centro de estética",
         "queries": ["centro de estética en {m}, {p}", "salón de uñas {m}", "depilación láser {m}"],
-        "dolor": "sin buena presencia online, las clientas van al centro que aparece primero en Google",
+        "dolor": "Cabinas vacías por ausencias generan pérdidas de más de 180€ por tratamiento. Sin fianza previa en la reserva online los no-shows destruyen la agenda.",
     },
     "peluqueria": {
         "nombre": "Peluquerías y barberías",
         "sector_label": "peluquería",
         "queries": ["peluquería en {m}, {p}", "barbería {m}", "salón de belleza {m}"],
-        "dolor": "sin presencia online las citas van al salón que aparece primero en Google",
+        "dolor": "Atender llamadas mientras se realiza un servicio pierde citas activas. Sin reserva online 24/7 los clientes van al salón que sí permite reservar desde Instagram.",
     },
     "spa": {
         "nombre": "Spas y centros de bienestar",
         "sector_label": "spa",
         "queries": ["spa en {m}, {p}", "centro de bienestar {m}", "masajes relajantes {m}"],
-        "dolor": "los clientes buscan spa para regalos y escapadas: sin web atractiva pierden esas reservas",
+        "dolor": "Los agregadores de descuentos se quedan con hasta el 30% del margen. Sin venta directa trabajan para las plataformas en vez de para sí mismos.",
     },
     "gimnasio": {
         "nombre": "Gimnasios y centros deportivos",
         "sector_label": "gimnasio",
         "queries": ["gimnasio en {m}, {p}", "crossfit {m}", "centro de yoga pilates {m}"],
-        "dolor": "los interesados buscan gimnasio en Google: sin buena web van al centro de al lado",
+        "dolor": "El 78% de quien busca gimnasio en el móvil se inscribe en el primero que ofrece prueba online. Sin reserva de clase de prueba pierde esas altas.",
     },
     "tatuaje": {
         "nombre": "Estudios de tatuaje y piercing",
         "sector_label": "estudio de tatuaje",
         "queries": ["estudio de tatuaje en {m}, {p}", "tatuador {m}", "piercing {m}"],
-        "dolor": "los clientes eligen tatuador por el portfolio online: sin web con galería pierden esas reservas",
+        "dolor": "Sin fianza obligatoria en la reserva los no-shows arruinan la agenda. El tiempo perdido en presupuestos por chat reduce la productividad un 25%.",
     },
 
     # ── Hostelería y restauración ───────────────────────────────────────
@@ -326,25 +326,25 @@ NICHOS: dict[str, dict] = {
         "nombre": "Restaurantes y bares",
         "sector_label": "restaurante",
         "queries": ["restaurante en {m}, {p}", "bar restaurante {m}", "cafetería {m}"],
-        "dolor": "cada reserva perdida por web lenta o sin visibilidad es dinero directo a la competencia",
+        "dolor": "Las cancelaciones de última hora reducen el margen mensual un 15%. Solo 2 de cada 10 bares aparece en la primera página de Google.",
     },
     "catering": {
         "nombre": "Catering y eventos gastronómicos",
         "sector_label": "catering",
         "queries": ["catering en {m}, {p}", "catering bodas {m}", "servicio catering eventos {m}"],
-        "dolor": "los novios y empresas buscan catering en Google meses antes: sin web profesional no llegan presupuestos",
+        "dolor": "El 60% de presupuestos de eventos se pierden por tardar más de 24 horas en responder. Sin agenda online para catas la competencia cierra antes.",
     },
     "pasteleria": {
         "nombre": "Pastelerías y panaderías",
         "sector_label": "pastelería",
         "queries": ["pastelería en {m}, {p}", "panadería artesanal {m}", "tartas personalizadas {m}"],
-        "dolor": "los clientes buscan pastelerías para celebraciones online: sin web ni pedidos online pierden ventas",
+        "dolor": "Sin canal de encargo online la producción es ineficiente y hay desperdicio. Solo el 31,6% de pymes alimentarias vende online.",
     },
     "hotel": {
         "nombre": "Hoteles y alojamientos",
         "sector_label": "hotel",
         "queries": ["hotel en {m}, {p}", "hostal {m}", "apartamentos turísticos {m}"],
-        "dolor": "los viajeros comparan hoteles online antes de reservar: sin buena presencia digital las reservas van a la competencia",
+        "dolor": "Las OTAs cobran entre el 15% y el 25% de comisión por reserva. Sin motor de reservas directas trabajan para Booking en vez de para sí mismos.",
     },
 
     # ── Servicios profesionales ─────────────────────────────────────────
@@ -352,31 +352,31 @@ NICHOS: dict[str, dict] = {
         "nombre": "Despachos de abogados",
         "sector_label": "abogado",
         "queries": ["abogado en {m}, {p}", "despacho de abogados {m}", "asesoría jurídica {m}"],
-        "dolor": "los clientes buscan abogado en Google antes de preguntar: sin presencia digital los casos van al despacho que aparece primero",
+        "dolor": "Solo el 29% de despachos profesionales usa captación digital. Sin agenda con primera consulta de pago atienden consultas informativas gratuitas.",
     },
     "gestoria": {
         "nombre": "Gestorías y asesorías",
         "sector_label": "gestoría",
         "queries": ["gestoría en {m}, {p}", "asesoría fiscal {m}", "asesoría laboral {m}"],
-        "dolor": "los autónomos y empresas buscan gestoría en Google: sin web clara pierden esos clientes",
+        "dolor": "El intercambio de documentación por email manual consume 15 horas mensuales por cliente. Solo el 10% de gestorías ofrece servicios online.",
     },
     "notaria": {
         "nombre": "Notarías",
         "sector_label": "notaría",
         "queries": ["notaría en {m}, {p}", "notario {m}", "notaría pública {m}"],
-        "dolor": "los ciudadanos buscan notaría cercana en Google: sin visibilidad digital pierden esas consultas",
+        "dolor": "La acumulación en sala de espera por falta de coordinación previa genera fricción. Sin cita previa online el cliente vive una experiencia deficiente.",
     },
     "seguros": {
         "nombre": "Agencias de seguros",
         "sector_label": "agencia de seguros",
         "queries": ["agencia de seguros en {m}, {p}", "correduría de seguros {m}", "seguros coches hogar {m}"],
-        "dolor": "los clientes comparan seguros online antes de contratar: sin presencia digital las pólizas van a la competencia",
+        "dolor": "El 88% de asegurados consulta en Google antes de renovar su póliza. Sin cotizador exprés 24/7 pierden renovaciones frente a comparadores online.",
     },
     "contabilidad": {
         "nombre": "Contables y auditores",
         "sector_label": "contable",
         "queries": ["contable en {m}, {p}", "auditoría contabilidad {m}", "asesoría contable {m}"],
-        "dolor": "sin web profesional, los clientes eligen al contable que aparece primero en Google",
+        "dolor": "La recogida física de facturas retrasa el cierre trimestral. Los contables que automatizan ahorran 15 horas al mes por PYME.",
     },
 
     # ── Inmobiliario y construcción ─────────────────────────────────────
@@ -384,43 +384,43 @@ NICHOS: dict[str, dict] = {
         "nombre": "Inmobiliarias",
         "sector_label": "inmobiliaria",
         "queries": ["inmobiliaria en {m}, {p}", "agencia inmobiliaria {m}", "pisos en venta {m}"],
-        "dolor": "compradores y vendedores buscan en Google: sin buena presencia esos contactos van a la competencia",
+        "dolor": "Las inmobiliarias pierden el 70% del tiempo en visitas con compradores no cualificados. Sin tours virtuales malgastan su agenda.",
     },
     "arquitectura": {
         "nombre": "Arquitectos e interioristas",
         "sector_label": "arquitecto",
         "queries": ["arquitecto en {m}, {p}", "interiorista {m}", "estudio de arquitectura {m}"],
-        "dolor": "los clientes buscan arquitecto en Google antes de pedir presupuesto: sin presencia digital los proyectos van a la competencia",
+        "dolor": "Proyectos paralizados por falta de presentación visual interactiva. Sin portfolio 3D y agenda online la reunión con el promotor nunca llega.",
     },
     "construccion": {
         "nombre": "Empresas de construcción y reformas",
         "sector_label": "empresa de reformas",
         "queries": ["empresa de reformas en {m}, {p}", "construcción {m}", "reformas hogar {m}"],
-        "dolor": "los propietarios buscan reformistas en Google y comparan: sin web con portfolio pierden presupuestos",
+        "dolor": "La construcción es el sector menos digitalizado de España — solo el 11,4% usa IA. Sus competidores que aparecen en Google se llevan las reformas.",
     },
     "fontaneria": {
         "nombre": "Fontaneros y gasfitters",
         "sector_label": "fontanero",
         "queries": ["fontanero en {m}, {p}", "fontanería urgente {m}", "instalaciones fontanería {m}"],
-        "dolor": "en una urgencia los clientes llaman al primero que aparece en Google: sin visibilidad pierden esas llamadas",
+        "dolor": "El 88% de quien sufre una fuga busca en Google Maps y llama al instante. Sin ficha en el TOP 3 local regala urgencias de alto valor a la competencia.",
     },
     "electricista": {
         "nombre": "Electricistas",
         "sector_label": "electricista",
         "queries": ["electricista en {m}, {p}", "electricista urgente {m}", "instalaciones eléctricas {m}"],
-        "dolor": "los clientes buscan electricista en Google en urgencias: sin visibilidad van al competidor que aparece primero",
+        "dolor": "Las búsquedas de cargadores de coche eléctrico se han triplicado. Sin presencia digital pierde contratos de mayor ticket frente a la competencia.",
     },
     "cerrajeria": {
         "nombre": "Cerrajerías",
         "sector_label": "cerrajero",
         "queries": ["cerrajero en {m}, {p}", "cerrajería urgente {m}", "cambio cerradura {m}"],
-        "dolor": "en una urgencia nocturna los clientes llaman al primero que aparece: sin buena presencia digital pierden esas llamadas",
+        "dolor": "El 78% de las búsquedas urgentes en móvil busca llamada en menos de 5 minutos. Sin estar en el TOP 3 de Google Maps local las urgencias van a la competencia.",
     },
     "climatizacion": {
         "nombre": "Climatización y aire acondicionado",
         "sector_label": "empresa de climatización",
         "queries": ["aire acondicionado en {m}, {p}", "climatización {m}", "instalación aire acondicionado {m}"],
-        "dolor": "en verano los clientes buscan instaladores urgentes en Google: sin visibilidad van al competidor",
+        "dolor": "Agenda vacía en primavera y otoño por falta de mantenimiento preventivo automatizado. Sin recordatorios por WhatsApp pierde contratos recurrentes.",
     },
 
     # ── Educación y formación ───────────────────────────────────────────
@@ -428,25 +428,25 @@ NICHOS: dict[str, dict] = {
         "nombre": "Academias e idiomas",
         "sector_label": "academia",
         "queries": ["academia idiomas en {m}, {p}", "academia inglés {m}", "academia oposiciones {m}"],
-        "dolor": "padres y alumnos buscan academia en Google: sin buena web esas matrículas van a otro centro",
+        "dolor": "Fuga de matrículas al inicio de curso por no ofrecer reserva de prueba de nivel online. El 54% de pymes educativas tiene software pero pierde alumnos en la web.",
     },
     "guarderia": {
         "nombre": "Guarderías y escuelas infantiles",
         "sector_label": "guardería",
         "queries": ["guardería en {m}, {p}", "escuela infantil {m}", "ludoteca {m}"],
-        "dolor": "los padres buscan guardería con tiempo: sin web clara y valoraciones pierden esas plazas",
+        "dolor": "Los padres buscan guardería fuera del horario lectivo y exigen cita inmediata. Sin agenda online 24/7 pierden esas plazas ante centros más ágiles.",
     },
     "autoescuela": {
         "nombre": "Autoescuelas",
         "sector_label": "autoescuela",
         "queries": ["autoescuela en {m}, {p}", "carnet de conducir {m}", "academia conducción {m}"],
-        "dolor": "los jóvenes buscan autoescuela en Google y comparan precios: sin buena presencia van a la competencia",
+        "dolor": "Los jóvenes exigen procesos 100% digitales para elegir horario de práctica. Sin reserva online saturan la administración y se van a otra autoescuela.",
     },
     "formacion_profesional": {
         "nombre": "Centros de formación profesional",
         "sector_label": "centro de formación",
         "queries": ["centro de formación en {m}, {p}", "FP formación profesional {m}", "cursos certificados {m}"],
-        "dolor": "los alumnos comparan centros online antes de matricularse: sin web clara pierden esas inscripciones",
+        "dolor": "Los formularios estáticos pierden hasta el 70% de solicitudes de información. Sin cita instantánea con orientador el interesado se va a otro centro.",
     },
 
     # ── Transporte y automoción ─────────────────────────────────────────
@@ -454,19 +454,19 @@ NICHOS: dict[str, dict] = {
         "nombre": "Talleres mecánicos",
         "sector_label": "taller mecánico",
         "queries": ["taller mecánico en {m}, {p}", "taller coches {m}", "chapa y pintura {m}"],
-        "dolor": "los clientes buscan taller en Google antes de llamar: sin buena presencia van al taller de al lado",
+        "dolor": "Las entradas caóticas a primera hora generan cuellos de botella. Sin cita previa online los clientes se van al taller que sí tiene agenda digital.",
     },
     "concesionario": {
         "nombre": "Concesionarios de vehículos",
         "sector_label": "concesionario",
         "queries": ["concesionario en {m}, {p}", "coches de segunda mano {m}", "venta coches {m}"],
-        "dolor": "los compradores buscan y comparan coches online: sin visibilidad digital pierden visitas al concesionario",
+        "dolor": "Responder tarde a leads web reduce la probabilidad de venta un 80%. Sin agendado de prueba de conducción online pierde el cliente en las primeras 2 horas.",
     },
     "mudanzas": {
         "nombre": "Empresas de mudanzas",
         "sector_label": "empresa de mudanzas",
         "queries": ["mudanzas en {m}, {p}", "empresa de mudanzas {m}", "portes {m}"],
-        "dolor": "los clientes buscan mudanzas en Google y piden varios presupuestos: sin web clara pierden esos contactos",
+        "dolor": "Las visitas para calcular cúbicos generan costes antes de confirmar la contratación. El 88% elige empresa local en Google — sin visibilidad no existes.",
     },
 
     # ── Comercio ────────────────────────────────────────────────────────
@@ -474,31 +474,31 @@ NICHOS: dict[str, dict] = {
         "nombre": "Joyerías y relojerías",
         "sector_label": "joyería",
         "queries": ["joyería en {m}, {p}", "relojería {m}", "anillos compromiso {m}"],
-        "dolor": "los clientes buscan joyería para ocasiones especiales online: sin web con catálogo pierden ventas",
+        "dolor": "El comercio minorista con e-commerce crece a doble dígito pero pierde la venta de alto ticket. Sin citas VIP el cliente compra en plataformas online.",
     },
     "floristeria": {
         "nombre": "Floristerías",
         "sector_label": "floristería",
         "queries": ["floristería en {m}, {p}", "flores a domicilio {m}", "ramos bodas {m}"],
-        "dolor": "los clientes buscan flores para regalos y bodas online: sin pedidos online y buena presencia pierden ventas",
+        "dolor": "Sin canal de pedido online y citas para novias pierde ventas fuera del horario. Los ramos de boda se contratan meses antes — sin web no llegan.",
     },
     "informatica": {
         "nombre": "Tiendas de informática y reparación",
         "sector_label": "tienda de informática",
         "queries": ["tienda informática en {m}, {p}", "reparación ordenadores {m}", "servicio técnico {m}"],
-        "dolor": "los clientes buscan reparación urgente de dispositivos en Google: sin visibilidad van al competidor",
+        "dolor": "Bajos márgenes en hardware por no vender mantenimientos recurrentes. Solo el 44% de pymes usa ERP/CRM — hay demanda local de soporte IT sin cubrir.",
     },
     "papeleria": {
         "nombre": "Papelerías e imprentas",
         "sector_label": "papelería",
         "queries": ["papelería en {m}, {p}", "imprenta {m}", "copistería {m}"],
-        "dolor": "sin presencia digital las empresas no encuentran a la imprenta local y van a servicios online",
+        "dolor": "Pérdida de ventas de material escolar frente a grandes superficies online. Sin tienda online con recogida rápida el barrio compra en Amazon.",
     },
     "ferreteria": {
         "nombre": "Ferreterías",
         "sector_label": "ferretería",
         "queries": ["ferretería en {m}, {p}", "suministros industriales {m}", "bricolaje {m}"],
-        "dolor": "los clientes buscan ferretería para proyectos urgentes: sin visibilidad online van al que aparece primero",
+        "dolor": "Sin catálogo web sincronizado el cliente profesional va a grandes almacenes. El comercio minorista con e-commerce crece — sin stock online pierden contratos.",
     },
 
     # ── Eventos y entretenimiento ───────────────────────────────────────
@@ -506,25 +506,25 @@ NICHOS: dict[str, dict] = {
         "nombre": "Fotógrafos y estudios",
         "sector_label": "fotógrafo",
         "queries": ["fotógrafo bodas en {m}, {p}", "estudio fotografía {m}", "fotógrafo eventos {m}"],
-        "dolor": "las parejas buscan fotógrafo de bodas en Google meses antes: sin portfolio web pierden esas reservas",
+        "dolor": "El caos en campañas de minisesiones por chat manual reduce productividad un 25%. Sin fianza online los no-shows arruinan la campaña de Navidad.",
     },
     "musica": {
         "nombre": "Escuelas de música",
         "sector_label": "escuela de música",
         "queries": ["escuela de música en {m}, {p}", "clases de guitarra piano {m}", "conservatorio {m}"],
-        "dolor": "los padres buscan escuela de música online: sin web clara pierden esas matrículas",
+        "dolor": "La coordinación manual de aulas y profesores genera solapamientos. Sin reserva online de salas y clases de prueba pierde alumnos ante academias más ágiles.",
     },
     "eventos": {
         "nombre": "Organización de eventos",
         "sector_label": "empresa de eventos",
         "queries": ["organización de eventos en {m}, {p}", "empresa eventos {m}", "wedding planner {m}"],
-        "dolor": "los novios y empresas buscan organizadores de eventos en Google: sin portfolio web pierden esos presupuestos",
+        "dolor": "El 60% del tiempo se pierde en llamadas de cualificación sin conocer el presupuesto. Sin agenda online y galería los organizadores van al que responde antes.",
     },
     "agencia_viajes": {
         "nombre": "Agencias de viajes",
         "sector_label": "agencia de viajes",
         "queries": ["agencia de viajes en {m}, {p}", "viajes organizados {m}", "tours {m}"],
-        "dolor": "los viajeros comparan paquetes online: sin web optimizada y buenas valoraciones van a la competencia",
+        "dolor": "El 32% de los españoles compra viajes online. Sin citas VIP para viajes a medida pierden los clientes de mayor valor frente a las plataformas.",
     },
 
     # ── Animales ────────────────────────────────────────────────────────
@@ -532,13 +532,13 @@ NICHOS: dict[str, dict] = {
         "nombre": "Peluquerías caninas",
         "sector_label": "peluquería canina",
         "queries": ["peluquería canina en {m}, {p}", "grooming perros {m}", "peluquería mascotas {m}"],
-        "dolor": "los dueños de mascotas buscan peluquería canina en Google: sin presencia digital van al que aparece primero",
+        "dolor": "Atender llamadas con las manos ocupadas genera retrasos y cancelaciones. Sin citas online segmentadas por raza y tamaño la agenda es un caos.",
     },
     "residencia_animales": {
         "nombre": "Residencias y guarderías para mascotas",
         "sector_label": "residencia de mascotas",
         "queries": ["residencia mascotas en {m}, {p}", "guardería perros {m}", "hotel mascotas {m}"],
-        "dolor": "los dueños buscan residencia de confianza para sus mascotas online: sin web con fotos y valoraciones pierden esas reservas",
+        "dolor": "Las cancelaciones en agosto dejan plazas vacías imposibles de reasignar. Sin reserva con fianza online las pérdidas en temporada alta son inevitables.",
     },
 
     # ── Limpieza y mantenimiento ────────────────────────────────────────
@@ -546,19 +546,19 @@ NICHOS: dict[str, dict] = {
         "nombre": "Empresas de limpieza",
         "sector_label": "empresa de limpieza",
         "queries": ["empresa de limpieza en {m}, {p}", "limpieza oficinas {m}", "limpieza comunidades {m}"],
-        "dolor": "las empresas buscan servicio de limpieza en Google y piden presupuestos: sin web profesional no llegan esos contactos",
+        "dolor": "Las cotizaciones lentas provocan la pérdida del contrato. El 88% elige la primera empresa de limpieza que responde — sin automatización se pierde.",
     },
     "jardineria": {
         "nombre": "Jardinería y paisajismo",
         "sector_label": "empresa de jardinería",
         "queries": ["jardinería en {m}, {p}", "paisajismo {m}", "mantenimiento jardines {m}"],
-        "dolor": "los propietarios buscan jardinero en Google para mantenimiento periódico: sin visibilidad pierden esos contratos",
+        "dolor": "Negocio estacional sin contacto automatizado para trabajos de poda. Sin recordatorios por WhatsApp pierde contratos de mantenimiento recurrente.",
     },
     "control_plagas": {
         "nombre": "Control de plagas",
         "sector_label": "empresa de control de plagas",
         "queries": ["control de plagas en {m}, {p}", "fumigación {m}", "desratización desinsectación {m}"],
-        "dolor": "en urgencias los clientes llaman al primero que aparece en Google: sin visibilidad pierden esas llamadas",
+        "dolor": "Un aviso no atendido al instante en un restaurante supone la pérdida del contrato anual. Sin reserva urgente desde Google la competencia se lleva el cliente.",
     },
 
     # ── Turismo rural ───────────────────────────────────────────────────
@@ -566,7 +566,7 @@ NICHOS: dict[str, dict] = {
         "nombre": "Casas rurales y turismo rural",
         "sector_label": "casa rural",
         "queries": ["casa rural en {m}, {p}", "turismo rural {m}", "alquiler vacacional {m}"],
-        "dolor": "los viajeros buscan alojamiento rural online: sin web atractiva y bien posicionada las reservas van a Airbnb o la competencia",
+        "dolor": "Los portales cobran entre el 15% y el 30% de comisión por reserva. Sin motor de reservas directas trabajan para las plataformas en vez de para sí mismos.",
     },
 
     # ── Otro ────────────────────────────────────────────────────────────
@@ -574,7 +574,7 @@ NICHOS: dict[str, dict] = {
         "nombre": "Negocio local",
         "sector_label": "negocio local",
         "queries": ["{m} {p} empresa local"],
-        "dolor": "los clientes buscan en Google antes de comprar: sin presencia online van a la competencia",
+        "dolor": "El 46% de búsquedas en Google tienen intención local y el 88% de usuarios lo visita en 24 horas. Sin presencia digital no existen.",
     },
 }
 
@@ -607,3 +607,4 @@ EXTENSIONES_FALSAS = (
     ".png", ".jpg", ".jpeg", ".gif", ".webp", ".svg", ".css", ".js",
     ".woff", ".woff2", ".ttf", ".eot",
 )
+
