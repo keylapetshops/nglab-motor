@@ -1,5 +1,6 @@
 from __future__ import annotations
 import smtplib
+import imaplib
 import time
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
@@ -11,6 +12,34 @@ from db import leads_por_estado, actualizar_lead, ahora
 # FIX: antes hardcodeado a 30, ahora viene de config.py (LOTE_DIARIO=25 por defecto)
 # Se puede cambiar via variable de entorno LOTE_DIARIO en Railway
 LIMITE_DIARIO = LOTE_DIARIO
+
+
+def guardar_copia_imap(msg):
+    """Guarda una copia del email en la carpeta Enviados de Strato via IMAP."""
+    try:
+        imap = imaplib.IMAP4_SSL("imap.strato.com", 993)
+        imap.login(SMTP_USER, SMTP_PASS)
+        # Strato usa "Sent" o "INBOX.Sent" — probamos ambos
+        carpetas = ["Sent", "INBOX.Sent", "Enviados", "INBOX.Enviados"]
+        guardado = False
+        for carpeta in carpetas:
+            try:
+                resultado = imap.append(
+                    carpeta,
+                    "\\Seen",
+                    imaplib.Time2Internaldate(time.time()),
+                    msg.as_bytes()
+                )
+                if resultado[0] == "OK":
+                    guardado = True
+                    break
+            except Exception:
+                continue
+        imap.logout()
+        if not guardado:
+            print("  WARN no se pudo guardar copia en Enviados")
+    except Exception as e:
+        print(f"  WARN copia IMAP fallida: {e}")
 
 
 def enviar_lote():
@@ -44,10 +73,9 @@ def enviar_lote():
 
         try:
             msg = MIMEMultipart("alternative")
-            msg["Subject"]  = asunto
-            msg["From"]     = f"{REMITENTE_NOMBRE} <{REMITENTE_EMAIL}>"
-            msg["To"]       = email_to
-            msg["Reply-To"] = REMITENTE_EMAIL
+            msg["Subject"] = asunto
+            msg["From"]    = f"{REMITENTE_NOMBRE} <{REMITENTE_EMAIL}>"
+            msg["To"]      = email_to
 
             if texto:
                 msg.attach(MIMEText(texto, "plain", "utf-8"))
@@ -57,6 +85,9 @@ def enviar_lote():
                 s.starttls()
                 s.login(SMTP_USER, SMTP_PASS)
                 s.send_message(msg)
+
+            # Guardar copia en carpeta Enviados de Strato
+            guardar_copia_imap(msg)
 
             actualizar_lead(
                 lid,
