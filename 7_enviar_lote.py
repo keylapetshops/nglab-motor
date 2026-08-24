@@ -19,8 +19,8 @@ def guardar_copia_imap(msg):
     try:
         imap = imaplib.IMAP4_SSL("imap.strato.com", 993)
         imap.login(SMTP_USER, SMTP_PASS)
-        # Strato usa "Sent" o "INBOX.Sent" — probamos ambos
-        carpetas = ["Sent", "INBOX.Sent", "Enviados", "INBOX.Enviados"]
+        # Strato usa "Sent Items"
+        carpetas = ["Sent Items", "Sent", "INBOX.Sent", "Enviados"]
         guardado = False
         for carpeta in carpetas:
             try:
