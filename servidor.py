@@ -24,7 +24,7 @@ import smtplib
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 
-from fastapi import BackgroundTasks, FastAPI, Header, HTTPException
+from fastapi import BackgroundTasks, FastAPI, Header, HTTPException, Request
 from fastapi.responses import HTMLResponse, Response
 
 from config import (LOTE_DIARIO, SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS,
@@ -62,9 +62,29 @@ def salud():
     return {"ok": True, "servicio": "NGLAB Motor"}
 
 
+
+# User-Agents de bots/escáneres que NO cuentan como apertura real
+_BOT_AGENTS = [
+    "googlebot", "bingbot", "slurp", "duckduckbot", "baidu", "yandex",
+    "barracuda", "proofpoint", "mimecast", "symantec", "sophos", "forcepoint",
+    "ironport", "messagelabs", "postini", "cloudmark", "spamassassin",
+    "python-requests", "python-httpx", "curl", "wget", "libwww", "java/",
+    "apache-httpclient", "microsoft office", "outlook", "preview", "prefetch",
+    "validator", "checker", "scanner", "bot", "spider", "crawl",
+]
+
 @app.get("/px/{token}.gif")
-def pixel(token: str):
+def pixel(token: str, request: Request):
     """Marca la apertura del email. Endpoint público."""
+    # Filtrar bots y escáneres automáticos
+    ua = (request.headers.get("user-agent") or "").lower()
+    if not ua or any(b in ua for b in _BOT_AGENTS):
+        return Response(
+            content=_PIXEL_GIF,
+            media_type="image/gif",
+            headers={"Cache-Control": "no-store, max-age=0"},
+        )
+
     import httpx
     from config import SUPABASE_URL, SUPABASE_SERVICE_KEY, ORG_ID
 
