@@ -1,40 +1,10 @@
 from __future__ import annotations
-import json, os, sqlite3, uuid
-from contextlib import contextmanager
+import json, os, uuid
 from datetime import datetime, timezone
 import httpx
 
-DB_PATH = os.getenv("DB_PATH", "nglab_motor.db")
-
 def ahora():
     return datetime.now(timezone.utc).isoformat()
-
-@contextmanager
-def _conexion():
-    con = sqlite3.connect(DB_PATH)
-    con.row_factory = sqlite3.Row
-    try:
-        yield con
-        con.commit()
-    finally:
-        con.close()
-
-conexion = _conexion
-
-def init_db():
-    with _conexion() as con:
-        con.executescript("CREATE TABLE IF NOT EXISTS prospeccion_log (nicho TEXT, municipio TEXT, fecha TEXT, PRIMARY KEY (nicho, municipio));")
-
-def registrar_prospeccion(nicho, municipio):
-    with _conexion() as con:
-        con.execute("INSERT OR IGNORE INTO prospeccion_log (nicho, municipio, fecha) VALUES (?,?,?)", (nicho, municipio, ahora()))
-
-registrar_busqueda = registrar_prospeccion
-
-def busquedas_hechas():
-    init_db()
-    with _conexion() as con:
-        return {(r["nicho"], r["municipio"]) for r in con.execute("SELECT nicho, municipio FROM prospeccion_log")}
 
 def _h():
     key = os.getenv("SUPABASE_SERVICE_KEY", "")
@@ -47,6 +17,34 @@ def _h():
 
 def _url(t):
     return os.getenv("SUPABASE_URL", "").rstrip("/") + f"/rest/v1/{t}"
+
+# ─── Rotación de municipios (ahora en Supabase, no SQLite) ───────────────────
+
+def init_db():
+    """Compatibilidad — ya no hace nada, la tabla existe en Supabase."""
+    pass
+
+def registrar_prospeccion(nicho: str, municipio: str):
+    with httpx.Client(timeout=15) as c:
+        c.post(
+            _url("motor_prospeccion_log"),
+            json={"nicho": nicho, "municipio": municipio, "fecha": ahora()},
+            headers={**_h(), "Prefer": "return=minimal,resolution=ignore-duplicates"},
+        )
+
+registrar_busqueda = registrar_prospeccion
+
+def busquedas_hechas() -> set:
+    with httpx.Client(timeout=15) as c:
+        r = c.get(
+            _url("motor_prospeccion_log") + "?select=nicho,municipio&limit=10000",
+            headers=_h(),
+        )
+        if r.status_code == 200:
+            return {(row["nicho"], row["municipio"]) for row in r.json()}
+    return set()
+
+# ─── Leads ───────────────────────────────────────────────────────────────────
 
 def upsert_lead(datos):
     payload = {
@@ -66,43 +64,19 @@ def upsert_lead(datos):
         "updated_at": ahora(),
     }
     with httpx.Client(timeout=15) as c:
-        r = c.post(
-            _url("crm_leads"),
-            json=payload,
-            headers=_h(),
-        )
+        r = c.post(_url("crm_leads"), json=payload, headers=_h())
         if r.status_code not in (200, 201):
             print(f"  ERROR upsert {r.status_code} {r.text[:100]}")
 
 def leads_por_estado(estado, con_web=False, nicho=None):
-    """
-    FIX: con_web=True ahora usa filtro correcto con dos condiciones separadas
-    en vez de 'web=neq.' sin valor que rompía la query.
-    """
     org_id = os.getenv("ORG_ID", "")
-    params = {
-        "org_id": f"eq.{org_id}",
-        "estado": f"eq.{estado}",
-        "select": "*",
-    }
-    if con_web:
-        # Filtra leads que tienen web: no es null Y no es cadena vacía
-        params["web"] = "not.is.null"
-        params["web"] = "neq."  # esto se sobreescribe — usamos approach correcto abajo
-
-    if nicho:
-        params["sector"] = f"eq.{nicho}"
-
-    # Build URL manualmente para manejar el doble filtro de web correctamente
-    base = _url("crm_leads")
     query = f"?org_id=eq.{org_id}&estado=eq.{estado}&select=*"
     if con_web:
-        query += "&web=not.is.null&web=neq.%22%22"
+        query += "&web=not.is.null&web=neq."
     if nicho:
         query += f"&sector=eq.{nicho}"
-
     with httpx.Client(timeout=15) as c:
-        r = c.get(base + query, headers=_h())
+        r = c.get(_url("crm_leads") + query, headers=_h())
         if r.status_code == 200:
             return r.json()
         print(f"  ERROR leads_por_estado {r.status_code}: {r.text[:100]}")
@@ -122,10 +96,6 @@ def actualizar_lead(lead_id, **campos):
     return True
 
 def lote_para_envio(limite):
-    """
-    FIX: estado corregido de 'redactado' (inexistente) a 'listo_para_enviar'.
-    Antes esta función siempre devolvía [] porque el estado no existía.
-    """
     org_id = os.getenv("ORG_ID", "")
     with httpx.Client(timeout=15) as c:
         r = c.get(
@@ -141,20 +111,13 @@ def lote_para_envio(limite):
         return r.json() if r.status_code == 200 else []
 
 def email_excluido(email: str) -> bool:
-    """
-    Comprueba si un email está marcado como dado_de_baja en Supabase.
-    """
     if not email:
         return False
     org_id = os.getenv("ORG_ID", "")
     with httpx.Client(timeout=10) as c:
         r = c.get(
             _url("crm_leads") +
-            f"?org_id=eq.{org_id}"
-            f"&email=eq.{email}"
-            f"&dado_de_baja=eq.true"
-            f"&select=id"
-            f"&limit=1",
+            f"?org_id=eq.{org_id}&email=eq.{email}&dado_de_baja=eq.true&select=id&limit=1",
             headers=_h(),
         )
         if r.status_code == 200:
@@ -162,23 +125,13 @@ def email_excluido(email: str) -> bool:
     return False
 
 def excluir_email(email: str, motivo: str = "baja_voluntaria") -> bool:
-    """
-    FIX: antes era stub vacío — las bajas voluntarias no se procesaban.
-    Ahora marca dado_de_baja=True en todos los leads con ese email.
-    """
     if not email:
         return False
     org_id = os.getenv("ORG_ID", "")
-    campos = {
-        "dado_de_baja": True,
-        "notas": f"Baja voluntaria: {motivo}",
-        "updated_at": ahora(),
-    }
+    campos = {"dado_de_baja": True, "notas": f"Baja voluntaria: {motivo}", "updated_at": ahora()}
     with httpx.Client(timeout=10) as c:
         r = c.patch(
-            _url("crm_leads") +
-            f"?org_id=eq.{org_id}"
-            f"&email=eq.{email}",
+            _url("crm_leads") + f"?org_id=eq.{org_id}&email=eq.{email}",
             json=campos,
             headers=_h(),
         )
