@@ -64,8 +64,8 @@ def generar_email(lead: dict) -> dict | None:
 
     # Detectar datos de auditoría básica
     auditoria  = cargar_json(lead.get("auditoria")) or {}
-    tiene_whatsapp  = auditoria.get("whatsapp", False)
-    tiene_citas_web = auditoria.get("citas_online", False)
+    tiene_whatsapp  = auditoria.get("tiene_whatsapp", False)
+    tiene_citas_web = auditoria.get("tiene_citas_online", False)
     tiene_https     = auditoria.get("https", True)
     movil_ok        = auditoria.get("movil_optimizada", True)
 
@@ -360,3 +360,4 @@ def main(nicho=None):
 
 if __name__ == "__main__":
     main(sys.argv[1] if len(sys.argv) > 1 else None)
+
