@@ -82,7 +82,10 @@ def generar_email(lead: dict) -> dict | None:
         elif rating_f < 4.0:
             puntos.append(f"Vuestro {rating}/5 en Google con {resenas} reseñas está por debajo de la media del sector — cada valoración negativa sin respuesta aleja a potenciales clientes")
     elif tiene_web:
-        puntos.append(dolor_cfg or f"Los clientes buscan {sector_label} en Google antes de llamar: sin buena presencia digital van a la competencia")
+        if tiene_citas_web and tiene_whatsapp:
+            puntos.append(f"Los clientes buscan {sector_label} en Google antes de llamar — sin buena presencia digital van a la competencia aunque tengáis una gran web")
+        else:
+            puntos.append(dolor_cfg or f"Los clientes buscan {sector_label} en Google antes de llamar: sin buena presencia digital van a la competencia")
 
     # Pain point 2: WhatsApp / citas online
     if tiene_web:
@@ -98,11 +101,11 @@ def generar_email(lead: dict) -> dict | None:
     # Pain point 3: Visibilidad IA — siempre aplica
     puntos.append(f"Cuando alguien le pregunta a ChatGPT o Google 'mejor {sector_label} en {ciudad}', {nombre} no aparece — y esto va a ser cada vez más determinante para captar nuevos clientes")
 
-    # Pain point adicional de auditoría si hay
+    # Pain point adicional de auditoría si hay (PageSpeed real)
     if dolores:
         p_extra = _pain(dolores, 0, "")
         if p_extra and p_extra not in " ".join(puntos):
-            puntos[1] = p_extra  # Reemplaza el punto 2 con dato real de auditoría
+            puntos[0] = p_extra  # Dato real de auditoría como punto principal
 
     asunto = generar_asunto(lead, cfg)
     url_baja   = f"{MOTOR_URL}/baja/{token}"
