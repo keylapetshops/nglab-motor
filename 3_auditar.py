@@ -81,6 +81,12 @@ def auditar_web(url: str) -> dict:
         a["tiene_facebook"] = "facebook.com" in html
         a["tiene_whatsapp"] = "wa.me" in html or "api.whatsapp.com" in html
         a["tiene_citas_online"] = any(k in html for k in CITAS_ONLINE)
+
+        # Detectar idioma HTML incorrecto
+        html_tag = soup.find("html")
+        lang = (html_tag.get("lang", "") if html_tag else "").lower()
+        a["idioma_html"] = lang
+        a["idioma_correcto"] = lang.startswith("es") if lang else False
     except httpx.HTTPError as e:
         a["error"] = type(e).__name__
     return a
