@@ -110,7 +110,7 @@ def generar_email(lead: dict) -> dict | None:
     if dolores:
         p_extra = _pain(dolores, 0, "")
         if p_extra and p_extra not in " ".join(puntos):
-            puntos[0] = p_extra  # Dato real de auditoría como punto principal
+            puntos.insert(0, p_extra)  # PageSpeed como primer punto, sin borrar los demás
 
     asunto = generar_asunto(lead, cfg)
     url_baja   = f"{MOTOR_URL}/baja/{token}"
