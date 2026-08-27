@@ -17,6 +17,9 @@ CITAS_ONLINE = [
     "timify", "calendly", "resurva", "reservio", "bewe.", "flowww",
     "citaonline", "cita-online", "cita previa online", "reserva online",
     "reservar online", "pedir cita online", "book online",
+    "/reserva", "/reservas", "/cita", "/citas", "/booking",
+    "reserva ahora", "pedir cita", "solicitar cita", "agenda tu cita",
+    "book now", "reserve now", "agendar",
 ]
 
 # Directorios médicos — no son webs propias del negocio
