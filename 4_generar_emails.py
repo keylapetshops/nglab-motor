@@ -59,7 +59,12 @@ def generar_email(lead: dict) -> dict | None:
     necesita_citas = cfg.get("necesita_citas", False)
 
     # Pain points del lead
-    dolores    = cargar_json(lead.get("pain_points")) or []
+    # pain_points puede venir como lista directa o como JSON string
+    raw_dolores = lead.get("pain_points")
+    if isinstance(raw_dolores, list):
+        dolores = raw_dolores
+    else:
+        dolores = cargar_json(raw_dolores) or []
     dolor_cfg  = cfg.get("dolor", "")
 
     # Detectar datos de auditoría básica
