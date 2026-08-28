@@ -71,19 +71,80 @@ _BOT_AGENTS = [
     "python-requests", "python-httpx", "curl", "wget", "libwww", "java/",
     "apache-httpclient", "microsoft office", "outlook", "preview", "prefetch",
     "validator", "checker", "scanner", "bot", "spider", "crawl",
+    "SafeLinks", "safelinks", "protection.outlook", "urldefense",
+    "kaspersky", "avast", "eset", "trend", "fireeye", "crowdstrike",
+    "abnormal", "agari", "area1", "avanan", "egress", "inky",
+    "perception point", "tessian", "vade", "zerospam",
 ]
+
+# IPs de datacenters y proveedores de seguridad conocidos (rangos CIDR)
+# Estas IPs nunca son usuarios reales
+_BOT_IP_PREFIXES = [
+    "34.", "35.", "130.211.", "104.154.", "104.197.",  # Google Cloud
+    "52.", "54.", "18.", "3.",                           # AWS
+    "40.", "20.", "13.",                                   # Azure / Microsoft
+    "162.247.", "209.85.",                                  # Google Mail scanners
+    "66.102.", "64.233.", "72.14.",                       # Google
+]
+
+# Registro temporal de aperturas por token para detectar ráfagas de bots
+# {token: [timestamp1, timestamp2, ...]}
+import collections, time as _time
+_apertura_cache: dict = collections.defaultdict(list)
+
+def _es_bot(ua: str, ip: str, token: str) -> bool:
+    """Detecta si la petición es un bot/scanner usando múltiples señales."""
+    # 1. User-agent conocido de bot
+    ua_lower = ua.lower()
+    if not ua or any(b in ua_lower for b in _BOT_AGENTS):
+        return True
+    
+    # 2. IP de datacenter conocido
+    if any(ip.startswith(prefix) for prefix in _BOT_IP_PREFIXES):
+        return True
+    
+    # 3. Sin Accept-Language (los bots no suelen enviarlo)
+    # Se comprueba fuera de esta función con el request
+    
+    # 4. Ráfaga: mismo token disparado más de 3 veces en 60 segundos
+    ahora_ts = _time.time()
+    _apertura_cache[token] = [t for t in _apertura_cache[token] if ahora_ts - t < 60]
+    _apertura_cache[token].append(ahora_ts)
+    if len(_apertura_cache[token]) > 3:
+        return True
+    
+    return False
 
 @app.get("/px/{token}.gif")
 def pixel(token: str, request: Request):
     """Marca la apertura del email. Endpoint público."""
-    # Filtrar bots y escáneres automáticos
-    ua = (request.headers.get("user-agent") or "").lower()
-    if not ua or any(b in ua for b in _BOT_AGENTS):
+    ua = request.headers.get("user-agent") or ""
+    ip = request.headers.get("x-forwarded-for", request.client.host or "").split(",")[0].strip()
+    accept_lang = request.headers.get("accept-language", "")
+    
+    # Filtrar bots usando múltiples señales
+    if _es_bot(ua, ip, token):
         return Response(
             content=_PIXEL_GIF,
             media_type="image/gif",
             headers={"Cache-Control": "no-store, max-age=0"},
         )
+    
+    # Sin Accept-Language = muy probable bot
+    if not accept_lang:
+        return Response(
+            content=_PIXEL_GIF,
+            media_type="image/gif",
+            headers={"Cache-Control": "no-store, max-age=0"},
+        )
+    
+    # NOTA: El pixel ya no registra aperturas de email.
+    # Solo usamos tracking por clic al informe (veces_abierto_informe) que es 100% fiable.
+    return Response(
+        content=_PIXEL_GIF,
+        media_type="image/gif",
+        headers={"Cache-Control": "no-store, max-age=0"},
+    )
 
     import httpx
     from config import SUPABASE_URL, SUPABASE_SERVICE_KEY, ORG_ID
@@ -476,3 +537,4 @@ def iniciar_scheduler():
     t = threading.Thread(target=_scheduler_loop, daemon=True)
     t.start()
     print("[SCHEDULER] Activo – pipeline 08:00 · emails 09:00 CEST")
+

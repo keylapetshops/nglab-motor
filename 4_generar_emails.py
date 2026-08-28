@@ -114,7 +114,7 @@ def generar_email(lead: dict) -> dict | None:
 
     asunto = generar_asunto(lead, cfg)
     url_baja   = f"{MOTOR_URL}/baja/{token}"
-    url_pixel  = f"{MOTOR_URL}/px/{token}.gif"
+    # url_pixel desactivado - tracking solo por clic al informe
     wa_texto   = f"Hola Jesica, he visto tu email sobre {nombre}".replace(" ", "+")
     wa_url     = f"https://wa.me/{WHATSAPP_NUM}?text={wa_texto}"
 
@@ -315,8 +315,7 @@ Si no deseas recibir más emails: {url_baja}
     </td></tr>
   </table>
 
-  <!-- Pixel tracking -->
-  <img src="{url_pixel}" width="1" height="1" style="display:none" alt="">
+  <!-- Tracking: solo por clic al informe (veces_abierto_informe) -->
 </body>
 </html>"""
 
