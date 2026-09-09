@@ -43,7 +43,7 @@ def guardar_copia_imap(msg):
 
 
 def enviar_lote():
-    leads = leads_por_estado("listo_para_enviar", nicho="dental")
+    leads = leads_por_estado("listo_para_enviar", nicho="estetica")
     if not leads:
         print("[ENVIO] No hay leads listos para enviar")
         return 0
@@ -128,4 +128,3 @@ def enviar_lote():
 
 if __name__ == "__main__":
     enviar_lote()
-
