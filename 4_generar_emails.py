@@ -58,7 +58,7 @@ def generar_email(lead: dict) -> dict | None:
     necesita_citas = cfg.get("necesita_citas", False)
 
     # URL del informe personalizado — CTA principal
-    url_informe = lead.get("url_informe") or f"{MOTOR_URL}/informe/{lead_id}"
+    url_informe = f"{MOTOR_URL}/informe/{lead_id}"
 
     # Pain points
     raw_dolores = lead.get("pain_points")
