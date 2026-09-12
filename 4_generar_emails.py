@@ -58,7 +58,7 @@ def generar_email(lead: dict) -> dict | None:
     necesita_citas = cfg.get("necesita_citas", False)
 
     # URL del informe personalizado — CTA principal
-    url_informe = f"{MOTOR_URL}/informe/{lead_id}"
+    url_informe = lead.get("url_informe") or f"{MOTOR_URL}/informe/{lead_id}"
 
     # Pain points
     raw_dolores = lead.get("pain_points")
@@ -164,9 +164,9 @@ Si no deseas recibir más emails: {url_baja}
 </head>
 <body style="margin:0;padding:0;background:#f0f0f0;font-family:system-ui,-apple-system,sans-serif">
 <table width="100%" cellpadding="0" cellspacing="0">
-<tr><td align="center" style="padding:24px 16px">
-<table width="560" cellpadding="0" cellspacing="0"
-       style="background:#fff;border-radius:10px;overflow:hidden;max-width:560px">
+<tr><td align="center" style="padding:0">
+<table width="100%" cellpadding="0" cellspacing="0"
+       style="background:#fff;border-radius:10px;overflow:hidden;max-width:100%">
 
 <!-- Header -->
 <tr>
