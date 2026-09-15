@@ -27,19 +27,20 @@ def _pain(dolores: list, idx: int, fallback: str = "") -> str:
 
 
 def generar_asunto(lead: dict, cfg: dict) -> str:
+    """Asuntos cortos y neutros estilo persona-a-persona, sin palabras de spam."""
     nombre = lead.get("nombre_negocio", "tu negocio")
-    rating = lead.get("calificacion_google")
-    resenas = lead.get("resenas_google", 0) or 0
+    ciudad = lead.get("ciudad", "")
     tiene_web = bool(lead.get("web", "").strip())
 
-    if not tiene_web:
-        return f"{nombre}: tus competidores te están ganando online"
-    elif rating and float(rating) >= 4.5 and resenas > 50:
-        return f"{nombre}: tienes buena reputación pero poca visibilidad digital"
-    elif rating and float(rating) < 4.0:
-        return f"{nombre}: hay algo que te está costando clientes"
+    # Acortar nombres muy largos
+    nombre_corto = nombre[:40] if len(nombre) > 40 else nombre
+
+    if ciudad:
+        return f"{nombre_corto} · {ciudad}"
+    elif not tiene_web:
+        return f"{nombre_corto} · informe gratuito"
     else:
-        return f"He analizado la presencia digital de {nombre}"
+        return f"{nombre_corto} · análisis web"
 
 
 def generar_email(lead: dict) -> dict | None:
