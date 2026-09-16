@@ -21,6 +21,20 @@ DOMINIOS_BLOQUEADOS = {
     "wordpress.com", "polyfill.io",
 }
 
+# Palabras que identifican dominios de organismos públicos — nunca enviar
+PALABRAS_ORGANISMO_PUBLICO = {
+    "agpd", "aeat", "ayuntamiento", "junta", "diputacion", "generalitat",
+    "govern", "xunta", "gobierno", "gob.es", "gov", "administracion",
+    "seguridad-social", "inem", "sepe",
+}
+
+# Palabras que identifican grandes franquicias/cadenas nacionales por nombre de negocio
+PALABRAS_FRANQUICIA = {
+    "audika", "specsavers", "multiópticas", "multiopticas", "anicura",
+    "baviera", "vitaldent", "ilusión óptica", "vision", "alain afflelou",
+    "general óptica", "generalóptica",
+}
+
 
 def dominio_email(email: str) -> str:
     try:
@@ -82,23 +96,58 @@ def enviar_lote():
     except Exception as e:
         print(f"   WARN no se pudieron cargar dominios enviados: {e}")
 
+    # Contar en cuántos leads aparece cada dominio de email (para detectar cadenas nacionales)
+    conteo_dominios: dict[str, int] = {}
+    try:
+        with httpx.Client(timeout=15) as c:
+            r = c.get(
+                f"{url_sb}/rest/v1/crm_leads"
+                f"?org_id=eq.{org}&email=not.is.null&select=email&limit=10000",
+                headers=headers,
+            )
+            if r.status_code == 200:
+                for row in r.json():
+                    d = dominio_email(row.get("email") or "")
+                    if d:
+                        conteo_dominios[d] = conteo_dominios.get(d, 0) + 1
+    except Exception as e:
+        print(f"   WARN no se pudo contar dominios: {e}")
+
     # Filtrar lote
     lote_filtrado = []
     dominios_en_este_lote: set[str] = set()
 
     for lead in leads:
         email = lead.get("email", "") or ""
+        nombre = lead.get("nombre_negocio", "") or ""
         if not email:
             continue
         d = dominio_email(email)
 
         if d in DOMINIOS_BLOQUEADOS:
-            print(f"   SKIP {lead.get('nombre_negocio','')[:40]} -> dominio bloqueado ({d})")
+            print(f"   SKIP {nombre[:40]} -> dominio bloqueado ({d})")
             actualizar_lead(lead["id"], estado="descartado", notas=f"Dominio bloqueado: {d}")
             continue
 
+        if conteo_dominios.get(d, 0) > 2:
+            print(f"   SKIP {nombre[:40]} -> cadena nacional ({d})")
+            actualizar_lead(lead["id"], estado="descartado",
+                           notas="cadena nacional - dominio repetido en más de 2 leads")
+            continue
+
+        if any(palabra in d for palabra in PALABRAS_ORGANISMO_PUBLICO):
+            print(f"   SKIP {nombre[:40]} -> organismo público ({d})")
+            actualizar_lead(lead["id"], estado="descartado", notas="organismo público")
+            continue
+
+        nombre_lower = nombre.lower()
+        if any(palabra in nombre_lower for palabra in PALABRAS_FRANQUICIA):
+            print(f"   SKIP {nombre[:40]} -> franquicia nacional")
+            actualizar_lead(lead["id"], estado="descartado", notas="franquicia nacional")
+            continue
+
         if d in dominios_ya_enviados or d in dominios_en_este_lote:
-            print(f"   SKIP {lead.get('nombre_negocio','')[:40]} -> dominio duplicado ({d})")
+            print(f"   SKIP {nombre[:40]} -> dominio duplicado ({d})")
             actualizar_lead(lead["id"], estado="descartado", notas=f"Dominio duplicado: {d}")
             continue
 
